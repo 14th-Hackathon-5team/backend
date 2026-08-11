@@ -15,3 +15,8 @@ spring:
     properties:
       hibernate:
         format_sql: true
+
+jwt:
+  issuer: kbuddy
+  signup-token-expiration: 10m
+  access-token-expiration: 1h
