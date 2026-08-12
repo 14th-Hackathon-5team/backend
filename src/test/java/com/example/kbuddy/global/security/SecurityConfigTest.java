@@ -2,8 +2,10 @@ package com.example.kbuddy.global.security;
 
 import com.example.kbuddy.auth.jwt.JwtProperties;
 import com.example.kbuddy.auth.jwt.JwtProvider;
+import com.example.kbuddy.auth.service.OAuth2LoginSuccessHandler;
 import com.example.kbuddy.auth.service.OAuth2UserService;
 import com.example.kbuddy.user.repository.UserRepository;
+import com.example.kbuddy.user.service.UserService;
 import com.nimbusds.jose.jwk.JWKSet;
 import com.nimbusds.jose.jwk.RSAKey;
 import com.nimbusds.jose.jwk.source.ImmutableJWKSet;
@@ -34,10 +36,17 @@ import java.time.Duration;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest
-@Import({SecurityConfig.class, JwtProvider.class, OAuth2UserService.class, SecurityConfigTest.TestKeyConfig.class})
+@Import({
+        SecurityConfig.class,
+        JwtProvider.class,
+        OAuth2UserService.class,
+        OAuth2LoginSuccessHandler.class,
+        SecurityConfigTest.TestKeyConfig.class
+})
 class SecurityConfigTest {
 
     @Autowired
@@ -78,6 +87,14 @@ class SecurityConfigTest {
                 .andExpect(result -> assertThat(result.getResponse().getStatus()).isNotEqualTo(401));
     }
 
+    @Test
+    void ACCESS_TOKEN으로_POST_api_users_me에_접근하면_403을_반환한다() throws Exception {
+        String accessToken = jwtProvider.issueAccessToken(1L);
+
+        mockMvc.perform(post("/api/users/me").header("Authorization", "Bearer " + accessToken))
+                .andExpect(status().isForbidden());
+    }
+
     @TestConfiguration
     static class TestKeyConfig {
 
@@ -109,6 +126,11 @@ class SecurityConfigTest {
         @Bean
         UserRepository userRepository() {
             return mock(UserRepository.class);
+        }
+
+        @Bean
+        UserService userService() {
+            return mock(UserService.class);
         }
 
         @Bean
