@@ -37,6 +37,7 @@ import java.time.Duration;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -110,6 +111,23 @@ class SecurityConfigTest {
                 AuthProvider.GOOGLE, "109876543210987654321", "test@gmail.com", "홍길동");
 
         mockMvc.perform(get("/api/users/me").header("Authorization", "Bearer " + signupToken))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void ACCESS_TOKEN으로_PATCH_api_users_me에_접근하면_403이_아니다() throws Exception {
+        String accessToken = jwtProvider.issueAccessToken(1L);
+
+        mockMvc.perform(patch("/api/users/me").header("Authorization", "Bearer " + accessToken))
+                .andExpect(result -> assertThat(result.getResponse().getStatus()).isNotEqualTo(403));
+    }
+
+    @Test
+    void SIGNUP_TOKEN으로_PATCH_api_users_me에_접근하면_403을_반환한다() throws Exception {
+        String signupToken = jwtProvider.issueSignupToken(
+                AuthProvider.GOOGLE, "109876543210987654321", "test@gmail.com", "홍길동");
+
+        mockMvc.perform(patch("/api/users/me").header("Authorization", "Bearer " + signupToken))
                 .andExpect(status().isForbidden());
     }
 

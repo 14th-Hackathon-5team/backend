@@ -136,6 +136,66 @@ public class User {
         this.targetTopikLevel = targetTopikLevel;
     }
 
+    public void updateProfile(
+            String name,
+            String nationality,
+            Integer birthYear,
+            UserStatus userStatus,
+            String schoolName,
+            LocalDate entryDate,
+            VisaType visaType,
+            Boolean hasAlienRegistration,
+            LocalDate stayExpirationDate,
+            HousingType housingType,
+            Boolean isParentSupported,
+            PartTimeStatus partTimeStatus,
+            TopikLevel currentTopikLevel,
+            TopikLevel targetTopikLevel
+    ) {
+        if (name != null) {
+            this.name = name;
+        }
+        if (nationality != null) {
+            this.nationality = nationality;
+        }
+        if (birthYear != null) {
+            this.birthYear = birthYear;
+        }
+        if (userStatus != null) {
+            this.userStatus = userStatus;
+        }
+        if (schoolName != null) {
+            this.schoolName = schoolName;
+        }
+        if (entryDate != null) {
+            this.entryDate = entryDate;
+        }
+        if (visaType != null) {
+            this.visaType = visaType;
+        }
+        if (hasAlienRegistration != null) {
+            this.hasAlienRegistration = hasAlienRegistration;
+        }
+        if (stayExpirationDate != null) {
+            this.stayExpirationDate = stayExpirationDate;
+        }
+        if (housingType != null) {
+            this.housingType = housingType;
+        }
+        if (isParentSupported != null) {
+            this.isParentSupported = isParentSupported;
+        }
+        if (partTimeStatus != null) {
+            this.partTimeStatus = partTimeStatus;
+        }
+        if (currentTopikLevel != null) {
+            this.currentTopikLevel = currentTopikLevel;
+        }
+        if (targetTopikLevel != null) {
+            this.targetTopikLevel = targetTopikLevel;
+        }
+    }
+
     @PrePersist
     protected void onCreate() {
         LocalDateTime now = LocalDateTime.now();
