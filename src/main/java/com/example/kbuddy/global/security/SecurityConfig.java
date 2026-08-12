@@ -1,9 +1,11 @@
 package com.example.kbuddy.global.security;
 
 import com.example.kbuddy.auth.jwt.JwtAuthorityConverter;
+import com.example.kbuddy.auth.service.OAuth2LoginSuccessHandler;
 import com.example.kbuddy.auth.service.OAuth2UserService;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -27,8 +29,10 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(
             HttpSecurity http,
             JwtDecoder jwtDecoder,
-            OAuth2UserService oAuth2UserService
+            OAuth2UserService oAuth2UserService,
+            OAuth2LoginSuccessHandler oAuth2LoginSuccessHandler
     ) throws Exception {
+
         JwtAuthenticationConverter jwtAuthenticationConverter = new JwtAuthenticationConverter();
         jwtAuthenticationConverter.setJwtGrantedAuthoritiesConverter(new JwtAuthorityConverter());
 
@@ -36,9 +40,12 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(PERMIT_ALL_PATHS).permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/users/me").hasAuthority("TOKEN_SIGNUP")
                         .anyRequest().authenticated())
                 .oauth2Login(oauth2 -> oauth2
-                        .userInfoEndpoint(userInfo -> userInfo.userService(oAuth2UserService)))
+                        .userInfoEndpoint(userInfo ->
+                                userInfo.userService(oAuth2UserService))
+                        .successHandler(oAuth2LoginSuccessHandler))
                 .oauth2ResourceServer(oauth2 -> oauth2
                         .jwt(jwt -> jwt
                                 .decoder(jwtDecoder)
