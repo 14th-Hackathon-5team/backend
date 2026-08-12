@@ -41,6 +41,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(PERMIT_ALL_PATHS).permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/users/me").hasAuthority("TOKEN_SIGNUP")
+                        .requestMatchers(HttpMethod.GET, "/api/users/me").hasAuthority("TOKEN_ACCESS")
                         .anyRequest().authenticated())
                 .oauth2Login(oauth2 -> oauth2
                         .userInfoEndpoint(userInfo ->

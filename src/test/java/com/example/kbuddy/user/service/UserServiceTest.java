@@ -4,6 +4,7 @@ import com.example.kbuddy.auth.jwt.JwtProvider;
 import com.example.kbuddy.auth.oauth.AuthProvider;
 import com.example.kbuddy.global.exception.BusinessException;
 import com.example.kbuddy.global.exception.ErrorCode;
+import com.example.kbuddy.user.dto.UserResponse;
 import com.example.kbuddy.user.dto.UserSignupRequest;
 import com.example.kbuddy.user.dto.UserSignupResponse;
 import com.example.kbuddy.user.entity.HousingType;
@@ -23,6 +24,7 @@ import org.springframework.security.oauth2.jwt.Jwt;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -173,6 +175,57 @@ class UserServiceTest {
         assertThat(userCaptor.getValue().getProvider()).isEqualTo(AuthProvider.GOOGLE);
         assertThat(userCaptor.getValue().getProviderId()).isEqualTo("109876543210987654321");
         assertThat(userCaptor.getValue().getEmail()).isEqualTo("test@gmail.com");
+    }
+
+    @Test
+    void 정상적으로_현재_사용자_정보를_조회할_수_있다() {
+        User user = mock(User.class);
+        when(user.getId()).thenReturn(1L);
+        when(user.getEmail()).thenReturn("test@gmail.com");
+        when(user.getName()).thenReturn("김철수");
+        when(user.getNationality()).thenReturn("중국");
+        when(user.getBirthYear()).thenReturn(2000);
+        when(user.getUserStatus()).thenReturn(UserStatus.UNDERGRADUATE);
+        when(user.getSchoolName()).thenReturn("서울대학교");
+        when(user.getEntryDate()).thenReturn(LocalDate.of(2022, 3, 1));
+        when(user.getVisaType()).thenReturn(VisaType.D2);
+        when(user.getHasAlienRegistration()).thenReturn(true);
+        when(user.getStayExpirationDate()).thenReturn(LocalDate.of(2027, 3, 1));
+        when(user.getHousingType()).thenReturn(HousingType.DORMITORY);
+        when(user.getIsParentSupported()).thenReturn(false);
+        when(user.getPartTimeStatus()).thenReturn(PartTimeStatus.SEARCHING);
+        when(user.getCurrentTopikLevel()).thenReturn(TopikLevel.LEVEL_3);
+        when(user.getTargetTopikLevel()).thenReturn(TopikLevel.LEVEL_5);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+
+        UserResponse response = userService.getMyInfo(1L);
+
+        assertThat(response.id()).isEqualTo(1L);
+        assertThat(response.email()).isEqualTo("test@gmail.com");
+        assertThat(response.name()).isEqualTo("김철수");
+        assertThat(response.nationality()).isEqualTo("중국");
+        assertThat(response.birthYear()).isEqualTo(2000);
+        assertThat(response.userStatus()).isEqualTo(UserStatus.UNDERGRADUATE);
+        assertThat(response.schoolName()).isEqualTo("서울대학교");
+        assertThat(response.entryDate()).isEqualTo(LocalDate.of(2022, 3, 1));
+        assertThat(response.visaType()).isEqualTo(VisaType.D2);
+        assertThat(response.hasAlienRegistration()).isTrue();
+        assertThat(response.stayExpirationDate()).isEqualTo(LocalDate.of(2027, 3, 1));
+        assertThat(response.housingType()).isEqualTo(HousingType.DORMITORY);
+        assertThat(response.isParentSupported()).isFalse();
+        assertThat(response.partTimeStatus()).isEqualTo(PartTimeStatus.SEARCHING);
+        assertThat(response.currentTopikLevel()).isEqualTo(TopikLevel.LEVEL_3);
+        assertThat(response.targetTopikLevel()).isEqualTo(TopikLevel.LEVEL_5);
+    }
+
+    @Test
+    void 존재하지_않는_userId로_조회하면_USER_NOT_FOUND_예외가_발생한다() {
+        when(userRepository.findById(999L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> userService.getMyInfo(999L))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.USER_NOT_FOUND);
     }
 
     private Jwt signupJwt(String provider, String providerId, String email, String name) {
