@@ -5,6 +5,7 @@ import com.example.kbuddy.auth.jwt.TokenType;
 import com.example.kbuddy.auth.oauth.AuthProvider;
 import com.example.kbuddy.global.exception.BusinessException;
 import com.example.kbuddy.global.exception.ErrorCode;
+import com.example.kbuddy.user.dto.UserResponse;
 import com.example.kbuddy.user.dto.UserSignupRequest;
 import com.example.kbuddy.user.dto.UserSignupResponse;
 import com.example.kbuddy.user.entity.User;
@@ -62,6 +63,31 @@ public class UserService {
         String accessToken = jwtProvider.issueAccessToken(savedUser.getId());
 
         return new UserSignupResponse(accessToken);
+    }
+
+    @Transactional(readOnly = true)
+    public UserResponse getMyInfo(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+
+        return new UserResponse(
+                user.getId(),
+                user.getEmail(),
+                user.getName(),
+                user.getNationality(),
+                user.getBirthYear(),
+                user.getUserStatus(),
+                user.getSchoolName(),
+                user.getEntryDate(),
+                user.getVisaType(),
+                user.getHasAlienRegistration(),
+                user.getStayExpirationDate(),
+                user.getHousingType(),
+                user.getIsParentSupported(),
+                user.getPartTimeStatus(),
+                user.getCurrentTopikLevel(),
+                user.getTargetTopikLevel()
+        );
     }
 
     private void validateSignupTokenType(Jwt jwt) {
