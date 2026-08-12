@@ -4,6 +4,7 @@ import com.example.kbuddy.global.response.ApiResponse;
 import com.example.kbuddy.user.dto.UserResponse;
 import com.example.kbuddy.user.dto.UserSignupRequest;
 import com.example.kbuddy.user.dto.UserSignupResponse;
+import com.example.kbuddy.user.dto.UserUpdateRequest;
 import com.example.kbuddy.user.service.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -11,6 +12,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
@@ -38,6 +40,18 @@ public class UserController {
         UserResponse response = userService.getMyInfo(userId);
         return ResponseEntity.ok(
                 ApiResponse.success("USER_INFO_FETCHED", "사용자 정보를 조회했습니다.", response)
+        );
+    }
+
+    @PatchMapping("/api/users/me")
+    public ResponseEntity<ApiResponse<UserResponse>> updateMyInfo(
+            @AuthenticationPrincipal Jwt jwt,
+            @Valid @RequestBody UserUpdateRequest request
+    ) {
+        Long userId = Long.valueOf(jwt.getSubject());
+        UserResponse response = userService.updateMyInfo(userId, request);
+        return ResponseEntity.ok(
+                ApiResponse.success("USER_INFO_UPDATED", "사용자 정보를 수정했습니다.", response)
         );
     }
 }

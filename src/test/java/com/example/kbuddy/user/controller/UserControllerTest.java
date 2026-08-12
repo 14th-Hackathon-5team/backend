@@ -6,6 +6,7 @@ import com.example.kbuddy.global.exception.GlobalExceptionHandler;
 import com.example.kbuddy.user.dto.UserResponse;
 import com.example.kbuddy.user.dto.UserSignupRequest;
 import com.example.kbuddy.user.dto.UserSignupResponse;
+import com.example.kbuddy.user.dto.UserUpdateRequest;
 import com.example.kbuddy.user.entity.HousingType;
 import com.example.kbuddy.user.entity.PartTimeStatus;
 import com.example.kbuddy.user.entity.TopikLevel;
@@ -26,10 +27,12 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.time.LocalDate;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -129,6 +132,88 @@ class UserControllerTest {
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.code").value("USER_NOT_FOUND"));
+    }
+
+    @Test
+    void PATCH_요청이_정상이면_200과_수정된_UserResponse_데이터를_반환한다() throws Exception {
+        UserResponse userResponse = new UserResponse(
+                1L,
+                "test@gmail.com",
+                "김철수",
+                "중국",
+                2000,
+                UserStatus.UNDERGRADUATE,
+                "연세대학교",
+                LocalDate.of(2022, 3, 1),
+                VisaType.D2,
+                true,
+                LocalDate.of(2027, 3, 1),
+                HousingType.DORMITORY,
+                false,
+                PartTimeStatus.SEARCHING,
+                TopikLevel.LEVEL_3,
+                TopikLevel.LEVEL_5
+        );
+        when(userService.updateMyInfo(eq(1L), any(UserUpdateRequest.class))).thenReturn(userResponse);
+
+        mockMvc.perform(patch("/api/users/me")
+                        .with(jwt().jwt(builder -> builder.subject("1")))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "schoolName": "연세대학교"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.code").value("USER_INFO_UPDATED"))
+                .andExpect(jsonPath("$.data.schoolName").value("연세대학교"));
+    }
+
+    @Test
+    void PATCH_요청에서_USER_NOT_FOUND_예외가_발생하면_404를_반환한다() throws Exception {
+        when(userService.updateMyInfo(eq(1L), any(UserUpdateRequest.class)))
+                .thenThrow(new BusinessException(ErrorCode.USER_NOT_FOUND));
+
+        mockMvc.perform(patch("/api/users/me")
+                        .with(jwt().jwt(builder -> builder.subject("1")))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "schoolName": "연세대학교"
+                                }
+                                """))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.code").value("USER_NOT_FOUND"));
+    }
+
+    @Test
+    void 빈_PATCH_요청이면_400을_반환한다() throws Exception {
+        when(userService.updateMyInfo(eq(1L), any(UserUpdateRequest.class)))
+                .thenThrow(new BusinessException(ErrorCode.USER_UPDATE_EMPTY));
+
+        mockMvc.perform(patch("/api/users/me")
+                        .with(jwt().jwt(builder -> builder.subject("1")))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.code").value("USER_UPDATE_EMPTY"));
+    }
+
+    @Test
+    void PATCH_validation_실패시_400을_반환한다() throws Exception {
+        mockMvc.perform(patch("/api/users/me")
+                        .with(jwt().jwt(builder -> builder.subject("1")))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "name": ""
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false));
     }
 
     private String validRequestJson() {

@@ -8,6 +8,7 @@ import com.example.kbuddy.global.exception.ErrorCode;
 import com.example.kbuddy.user.dto.UserResponse;
 import com.example.kbuddy.user.dto.UserSignupRequest;
 import com.example.kbuddy.user.dto.UserSignupResponse;
+import com.example.kbuddy.user.dto.UserUpdateRequest;
 import com.example.kbuddy.user.entity.User;
 import com.example.kbuddy.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -88,6 +89,69 @@ public class UserService {
                 user.getCurrentTopikLevel(),
                 user.getTargetTopikLevel()
         );
+    }
+
+    @Transactional
+    public UserResponse updateMyInfo(Long userId, UserUpdateRequest request) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+
+        if (hasNoUpdatableValue(request)) {
+            throw new BusinessException(ErrorCode.USER_UPDATE_EMPTY);
+        }
+
+        user.updateProfile(
+                request.name(),
+                request.nationality(),
+                request.birthYear(),
+                request.userStatus(),
+                request.schoolName(),
+                request.entryDate(),
+                request.visaType(),
+                request.hasAlienRegistration(),
+                request.stayExpirationDate(),
+                request.housingType(),
+                request.isParentSupported(),
+                request.partTimeStatus(),
+                request.currentTopikLevel(),
+                request.targetTopikLevel()
+        );
+
+        return new UserResponse(
+                user.getId(),
+                user.getEmail(),
+                user.getName(),
+                user.getNationality(),
+                user.getBirthYear(),
+                user.getUserStatus(),
+                user.getSchoolName(),
+                user.getEntryDate(),
+                user.getVisaType(),
+                user.getHasAlienRegistration(),
+                user.getStayExpirationDate(),
+                user.getHousingType(),
+                user.getIsParentSupported(),
+                user.getPartTimeStatus(),
+                user.getCurrentTopikLevel(),
+                user.getTargetTopikLevel()
+        );
+    }
+
+    private boolean hasNoUpdatableValue(UserUpdateRequest request) {
+        return request.name() == null
+                && request.nationality() == null
+                && request.birthYear() == null
+                && request.userStatus() == null
+                && request.schoolName() == null
+                && request.entryDate() == null
+                && request.visaType() == null
+                && request.hasAlienRegistration() == null
+                && request.stayExpirationDate() == null
+                && request.housingType() == null
+                && request.isParentSupported() == null
+                && request.partTimeStatus() == null
+                && request.currentTopikLevel() == null
+                && request.targetTopikLevel() == null;
     }
 
     private void validateSignupTokenType(Jwt jwt) {

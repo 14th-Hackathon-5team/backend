@@ -7,6 +7,7 @@ import com.example.kbuddy.global.exception.ErrorCode;
 import com.example.kbuddy.user.dto.UserResponse;
 import com.example.kbuddy.user.dto.UserSignupRequest;
 import com.example.kbuddy.user.dto.UserSignupResponse;
+import com.example.kbuddy.user.dto.UserUpdateRequest;
 import com.example.kbuddy.user.entity.HousingType;
 import com.example.kbuddy.user.entity.PartTimeStatus;
 import com.example.kbuddy.user.entity.TopikLevel;
@@ -22,13 +23,16 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.oauth2.jwt.Jwt;
 
+import java.lang.reflect.RecordComponent;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.Arrays;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.CALLS_REAL_METHODS;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -226,6 +230,158 @@ class UserServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.USER_NOT_FOUND);
+    }
+
+    @Test
+    void 일부_필드만_수정하면_해당_필드만_변경되고_나머지는_기존_값을_유지한다() {
+        User user = baselineUser();
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+
+        UserUpdateRequest request = new UserUpdateRequest(
+                null, null, null, null,
+                "연세대학교",
+                null, null, null, null, null, null, null, null, null
+        );
+
+        UserResponse response = userService.updateMyInfo(1L, request);
+
+        assertThat(response.schoolName()).isEqualTo("연세대학교");
+        assertThat(response.name()).isEqualTo("김철수");
+        assertThat(response.nationality()).isEqualTo("중국");
+        assertThat(response.birthYear()).isEqualTo(2000);
+        assertThat(response.userStatus()).isEqualTo(UserStatus.UNDERGRADUATE);
+        assertThat(response.entryDate()).isEqualTo(LocalDate.of(2022, 3, 1));
+        assertThat(response.visaType()).isEqualTo(VisaType.D2);
+        assertThat(response.hasAlienRegistration()).isTrue();
+        assertThat(response.stayExpirationDate()).isEqualTo(LocalDate.of(2027, 3, 1));
+        assertThat(response.housingType()).isEqualTo(HousingType.DORMITORY);
+        assertThat(response.isParentSupported()).isFalse();
+        assertThat(response.partTimeStatus()).isEqualTo(PartTimeStatus.SEARCHING);
+        assertThat(response.currentTopikLevel()).isEqualTo(TopikLevel.LEVEL_3);
+        assertThat(response.targetTopikLevel()).isEqualTo(TopikLevel.LEVEL_5);
+    }
+
+    @Test
+    void 여러_필드를_동시에_수정할_수_있다() {
+        User user = baselineUser();
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+
+        UserUpdateRequest request = new UserUpdateRequest(
+                "박영희", null, 1998, null,
+                null, null, null, null, null,
+                HousingType.RENT, null, PartTimeStatus.WORKING, null, null
+        );
+
+        UserResponse response = userService.updateMyInfo(1L, request);
+
+        assertThat(response.name()).isEqualTo("박영희");
+        assertThat(response.birthYear()).isEqualTo(1998);
+        assertThat(response.housingType()).isEqualTo(HousingType.RENT);
+        assertThat(response.partTimeStatus()).isEqualTo(PartTimeStatus.WORKING);
+        assertThat(response.nationality()).isEqualTo("중국");
+        assertThat(response.schoolName()).isEqualTo("서울대학교");
+    }
+
+    @Test
+    void 수정_가능한_필드_14개_전체가_정상적으로_매핑된다() {
+        User user = baselineUser();
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+
+        UserUpdateRequest request = new UserUpdateRequest(
+                "박영희",
+                "베트남",
+                1998,
+                UserStatus.GRADUATE,
+                "연세대학교",
+                LocalDate.of(2023, 9, 1),
+                VisaType.D4,
+                false,
+                LocalDate.of(2028, 9, 1),
+                HousingType.RENT,
+                true,
+                PartTimeStatus.WORKING,
+                TopikLevel.LEVEL_4,
+                TopikLevel.LEVEL_6
+        );
+
+        UserResponse response = userService.updateMyInfo(1L, request);
+
+        assertThat(response.name()).isEqualTo("박영희");
+        assertThat(response.nationality()).isEqualTo("베트남");
+        assertThat(response.birthYear()).isEqualTo(1998);
+        assertThat(response.userStatus()).isEqualTo(UserStatus.GRADUATE);
+        assertThat(response.schoolName()).isEqualTo("연세대학교");
+        assertThat(response.entryDate()).isEqualTo(LocalDate.of(2023, 9, 1));
+        assertThat(response.visaType()).isEqualTo(VisaType.D4);
+        assertThat(response.hasAlienRegistration()).isFalse();
+        assertThat(response.stayExpirationDate()).isEqualTo(LocalDate.of(2028, 9, 1));
+        assertThat(response.housingType()).isEqualTo(HousingType.RENT);
+        assertThat(response.isParentSupported()).isTrue();
+        assertThat(response.partTimeStatus()).isEqualTo(PartTimeStatus.WORKING);
+        assertThat(response.currentTopikLevel()).isEqualTo(TopikLevel.LEVEL_4);
+        assertThat(response.targetTopikLevel()).isEqualTo(TopikLevel.LEVEL_6);
+    }
+
+    @Test
+    void 존재하지_않는_userId로_수정하면_USER_NOT_FOUND_예외가_발생한다() {
+        when(userRepository.findById(999L)).thenReturn(Optional.empty());
+
+        UserUpdateRequest request = new UserUpdateRequest(
+                "박영희", null, null, null, null, null, null, null, null, null, null, null, null, null
+        );
+
+        assertThatThrownBy(() -> userService.updateMyInfo(999L, request))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.USER_NOT_FOUND);
+    }
+
+    @Test
+    void 수정할_값이_하나도_없으면_USER_UPDATE_EMPTY_예외가_발생한다() {
+        User user = mock(User.class);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+
+        UserUpdateRequest request = new UserUpdateRequest(
+                null, null, null, null, null, null, null, null, null, null, null, null, null, null
+        );
+
+        assertThatThrownBy(() -> userService.updateMyInfo(1L, request))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.USER_UPDATE_EMPTY);
+    }
+
+    @Test
+    void UserUpdateRequest에는_수정_불가능한_필드가_존재하지_않는다() {
+        var componentNames = Arrays.stream(UserUpdateRequest.class.getRecordComponents())
+                .map(RecordComponent::getName)
+                .toList();
+
+        assertThat(componentNames)
+                .doesNotContain("id", "provider", "providerId", "email", "createdAt", "updatedAt");
+    }
+
+    private User baselineUser() {
+        User user = mock(User.class, CALLS_REAL_METHODS);
+        when(user.getId()).thenReturn(1L);
+        when(user.getEmail()).thenReturn("test@gmail.com");
+        user.updateProfile(
+                "김철수",
+                "중국",
+                2000,
+                UserStatus.UNDERGRADUATE,
+                "서울대학교",
+                LocalDate.of(2022, 3, 1),
+                VisaType.D2,
+                true,
+                LocalDate.of(2027, 3, 1),
+                HousingType.DORMITORY,
+                false,
+                PartTimeStatus.SEARCHING,
+                TopikLevel.LEVEL_3,
+                TopikLevel.LEVEL_5
+        );
+        return user;
     }
 
     private Jwt signupJwt(String provider, String providerId, String email, String name) {
