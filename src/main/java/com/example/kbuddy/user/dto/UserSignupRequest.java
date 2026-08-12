@@ -1,6 +1,7 @@
 package com.example.kbuddy.user.dto;
 
 import com.example.kbuddy.user.entity.HousingType;
+import com.example.kbuddy.user.entity.Language;
 import com.example.kbuddy.user.entity.PartTimeStatus;
 import com.example.kbuddy.user.entity.TopikLevel;
 import com.example.kbuddy.user.entity.UserStatus;
@@ -66,6 +67,10 @@ public record UserSignupRequest(
 
         @Schema(description = "목표 TOPIK 등급", requiredMode = Schema.RequiredMode.REQUIRED)
         @NotNull
-        TopikLevel targetTopikLevel
+        TopikLevel targetTopikLevel,
+
+        @Schema(description = "사용 언어", example = "ENGLISH", requiredMode = Schema.RequiredMode.REQUIRED)
+        @NotNull
+        Language language
 ) {
 }

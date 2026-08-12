@@ -9,6 +9,7 @@ import com.example.kbuddy.user.dto.UserSignupRequest;
 import com.example.kbuddy.user.dto.UserSignupResponse;
 import com.example.kbuddy.user.dto.UserUpdateRequest;
 import com.example.kbuddy.user.entity.HousingType;
+import com.example.kbuddy.user.entity.Language;
 import com.example.kbuddy.user.entity.PartTimeStatus;
 import com.example.kbuddy.user.entity.TopikLevel;
 import com.example.kbuddy.user.entity.User;
@@ -182,6 +183,42 @@ class UserServiceTest {
     }
 
     @Test
+    void 회원가입_요청의_language가_KOREAN이면_User에_KOREAN이_저장된다() {
+        Jwt jwt = signupJwt("GOOGLE", "109876543210987654321", "test@gmail.com", "OAuth상의이름");
+        UserSignupRequest request = validRequest("김철수", Language.KOREAN);
+
+        User savedUser = mock(User.class);
+        when(savedUser.getId()).thenReturn(1L);
+        when(userRepository.existsByEmail("test@gmail.com")).thenReturn(false);
+        when(userRepository.save(any(User.class))).thenReturn(savedUser);
+        when(jwtProvider.issueAccessToken(1L)).thenReturn("access-token-value");
+
+        userService.signup(jwt, request);
+
+        ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
+        verify(userRepository).save(userCaptor.capture());
+        assertThat(userCaptor.getValue().getLanguage()).isEqualTo(Language.KOREAN);
+    }
+
+    @Test
+    void 회원가입_요청의_language가_ENGLISH이면_User에_ENGLISH가_저장된다() {
+        Jwt jwt = signupJwt("GOOGLE", "109876543210987654321", "test@gmail.com", "OAuth상의이름");
+        UserSignupRequest request = validRequest("김철수", Language.ENGLISH);
+
+        User savedUser = mock(User.class);
+        when(savedUser.getId()).thenReturn(1L);
+        when(userRepository.existsByEmail("test@gmail.com")).thenReturn(false);
+        when(userRepository.save(any(User.class))).thenReturn(savedUser);
+        when(jwtProvider.issueAccessToken(1L)).thenReturn("access-token-value");
+
+        userService.signup(jwt, request);
+
+        ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
+        verify(userRepository).save(userCaptor.capture());
+        assertThat(userCaptor.getValue().getLanguage()).isEqualTo(Language.ENGLISH);
+    }
+
+    @Test
     void 정상적으로_현재_사용자_정보를_조회할_수_있다() {
         User user = mock(User.class);
         when(user.getId()).thenReturn(1L);
@@ -200,6 +237,7 @@ class UserServiceTest {
         when(user.getPartTimeStatus()).thenReturn(PartTimeStatus.SEARCHING);
         when(user.getCurrentTopikLevel()).thenReturn(TopikLevel.LEVEL_3);
         when(user.getTargetTopikLevel()).thenReturn(TopikLevel.LEVEL_5);
+        when(user.getLanguage()).thenReturn(Language.ENGLISH);
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
 
         UserResponse response = userService.getMyInfo(1L);
@@ -220,6 +258,7 @@ class UserServiceTest {
         assertThat(response.partTimeStatus()).isEqualTo(PartTimeStatus.SEARCHING);
         assertThat(response.currentTopikLevel()).isEqualTo(TopikLevel.LEVEL_3);
         assertThat(response.targetTopikLevel()).isEqualTo(TopikLevel.LEVEL_5);
+        assertThat(response.language()).isEqualTo(Language.ENGLISH);
     }
 
     @Test
@@ -240,7 +279,8 @@ class UserServiceTest {
         UserUpdateRequest request = new UserUpdateRequest(
                 null, null, null, null,
                 "연세대학교",
-                null, null, null, null, null, null, null, null, null
+                null, null, null, null, null, null, null, null, null,
+                null
         );
 
         UserResponse response = userService.updateMyInfo(1L, request);
@@ -269,7 +309,8 @@ class UserServiceTest {
         UserUpdateRequest request = new UserUpdateRequest(
                 "박영희", null, 1998, null,
                 null, null, null, null, null,
-                HousingType.RENT, null, PartTimeStatus.WORKING, null, null
+                HousingType.RENT, null, PartTimeStatus.WORKING, null, null,
+                null
         );
 
         UserResponse response = userService.updateMyInfo(1L, request);
@@ -301,7 +342,8 @@ class UserServiceTest {
                 true,
                 PartTimeStatus.WORKING,
                 TopikLevel.LEVEL_4,
-                TopikLevel.LEVEL_6
+                TopikLevel.LEVEL_6,
+                null
         );
 
         UserResponse response = userService.updateMyInfo(1L, request);
@@ -323,11 +365,47 @@ class UserServiceTest {
     }
 
     @Test
+    void PATCH에서_language만_수정하면_language가_변경된다() {
+        User user = baselineUser();
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+
+        UserUpdateRequest request = new UserUpdateRequest(
+                null, null, null, null, null, null, null, null, null, null, null, null, null, null,
+                Language.ENGLISH
+        );
+
+        UserResponse response = userService.updateMyInfo(1L, request);
+
+        assertThat(response.language()).isEqualTo(Language.ENGLISH);
+        assertThat(response.name()).isEqualTo("김철수");
+        assertThat(response.schoolName()).isEqualTo("서울대학교");
+    }
+
+    @Test
+    void PATCH에서_language를_보내지_않으면_기존_language가_유지된다() {
+        User user = baselineUser();
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+
+        UserUpdateRequest request = new UserUpdateRequest(
+                null, null, null, null,
+                "연세대학교",
+                null, null, null, null, null, null, null, null, null,
+                null
+        );
+
+        UserResponse response = userService.updateMyInfo(1L, request);
+
+        assertThat(response.schoolName()).isEqualTo("연세대학교");
+        assertThat(response.language()).isEqualTo(Language.KOREAN);
+    }
+
+    @Test
     void 존재하지_않는_userId로_수정하면_USER_NOT_FOUND_예외가_발생한다() {
         when(userRepository.findById(999L)).thenReturn(Optional.empty());
 
         UserUpdateRequest request = new UserUpdateRequest(
-                "박영희", null, null, null, null, null, null, null, null, null, null, null, null, null
+                "박영희", null, null, null, null, null, null, null, null, null, null, null, null, null,
+                null
         );
 
         assertThatThrownBy(() -> userService.updateMyInfo(999L, request))
@@ -342,7 +420,8 @@ class UserServiceTest {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
 
         UserUpdateRequest request = new UserUpdateRequest(
-                null, null, null, null, null, null, null, null, null, null, null, null, null, null
+                null, null, null, null, null, null, null, null, null, null, null, null, null, null,
+                null
         );
 
         assertThatThrownBy(() -> userService.updateMyInfo(1L, request))
@@ -379,7 +458,8 @@ class UserServiceTest {
                 false,
                 PartTimeStatus.SEARCHING,
                 TopikLevel.LEVEL_3,
-                TopikLevel.LEVEL_5
+                TopikLevel.LEVEL_5,
+                Language.KOREAN
         );
         return user;
     }
@@ -399,6 +479,10 @@ class UserServiceTest {
     }
 
     private UserSignupRequest validRequest(String name) {
+        return validRequest(name, Language.KOREAN);
+    }
+
+    private UserSignupRequest validRequest(String name, Language language) {
         return new UserSignupRequest(
                 name,
                 "중국",
@@ -413,7 +497,8 @@ class UserServiceTest {
                 false,
                 PartTimeStatus.SEARCHING,
                 TopikLevel.LEVEL_3,
-                TopikLevel.LEVEL_5
+                TopikLevel.LEVEL_5,
+                language
         );
     }
 }

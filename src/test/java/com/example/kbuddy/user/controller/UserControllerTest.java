@@ -8,6 +8,7 @@ import com.example.kbuddy.user.dto.UserSignupRequest;
 import com.example.kbuddy.user.dto.UserSignupResponse;
 import com.example.kbuddy.user.dto.UserUpdateRequest;
 import com.example.kbuddy.user.entity.HousingType;
+import com.example.kbuddy.user.entity.Language;
 import com.example.kbuddy.user.entity.PartTimeStatus;
 import com.example.kbuddy.user.entity.TopikLevel;
 import com.example.kbuddy.user.entity.UserStatus;
@@ -78,6 +79,16 @@ class UserControllerTest {
     }
 
     @Test
+    void 회원가입_요청에_language가_누락되면_400을_반환한다() throws Exception {
+        mockMvc.perform(post("/api/users/me")
+                        .with(jwt())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestJsonWithoutLanguage()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false));
+    }
+
+    @Test
     void BusinessException_발생시_정의한_ApiResponse_fail_형태로_응답한다() throws Exception {
         when(userService.signup(any(), any(UserSignupRequest.class)))
                 .thenThrow(new BusinessException(ErrorCode.USER_ALREADY_EXISTS));
@@ -110,7 +121,8 @@ class UserControllerTest {
                 false,
                 PartTimeStatus.SEARCHING,
                 TopikLevel.LEVEL_3,
-                TopikLevel.LEVEL_5
+                TopikLevel.LEVEL_5,
+                Language.KOREAN
         );
         when(userService.getMyInfo(1L)).thenReturn(userResponse);
 
@@ -120,7 +132,8 @@ class UserControllerTest {
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.id").value(1))
                 .andExpect(jsonPath("$.data.email").value("test@gmail.com"))
-                .andExpect(jsonPath("$.data.name").value("김철수"));
+                .andExpect(jsonPath("$.data.name").value("김철수"))
+                .andExpect(jsonPath("$.data.language").value("KOREAN"));
     }
 
     @Test
@@ -152,7 +165,8 @@ class UserControllerTest {
                 false,
                 PartTimeStatus.SEARCHING,
                 TopikLevel.LEVEL_3,
-                TopikLevel.LEVEL_5
+                TopikLevel.LEVEL_5,
+                Language.KOREAN
         );
         when(userService.updateMyInfo(eq(1L), any(UserUpdateRequest.class))).thenReturn(userResponse);
 
@@ -167,7 +181,44 @@ class UserControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.code").value("USER_INFO_UPDATED"))
-                .andExpect(jsonPath("$.data.schoolName").value("연세대학교"));
+                .andExpect(jsonPath("$.data.schoolName").value("연세대학교"))
+                .andExpect(jsonPath("$.data.language").value("KOREAN"));
+    }
+
+    @Test
+    void PATCH_요청에서_language만_전달해도_정상_처리된다() throws Exception {
+        UserResponse userResponse = new UserResponse(
+                1L,
+                "test@gmail.com",
+                "김철수",
+                "중국",
+                2000,
+                UserStatus.UNDERGRADUATE,
+                "서울대학교",
+                LocalDate.of(2022, 3, 1),
+                VisaType.D2,
+                true,
+                LocalDate.of(2027, 3, 1),
+                HousingType.DORMITORY,
+                false,
+                PartTimeStatus.SEARCHING,
+                TopikLevel.LEVEL_3,
+                TopikLevel.LEVEL_5,
+                Language.ENGLISH
+        );
+        when(userService.updateMyInfo(eq(1L), any(UserUpdateRequest.class))).thenReturn(userResponse);
+
+        mockMvc.perform(patch("/api/users/me")
+                        .with(jwt().jwt(builder -> builder.subject("1")))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "language": "ENGLISH"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.language").value("ENGLISH"));
     }
 
     @Test
@@ -217,6 +268,28 @@ class UserControllerTest {
     }
 
     private String validRequestJson() {
+        return """
+                {
+                  "name": "김철수",
+                  "nationality": "중국",
+                  "birthYear": 2000,
+                  "userStatus": "UNDERGRADUATE",
+                  "schoolName": "서울대학교",
+                  "entryDate": "2022-03-01",
+                  "visaType": "D2",
+                  "hasAlienRegistration": true,
+                  "stayExpirationDate": "2027-03-01",
+                  "housingType": "DORMITORY",
+                  "isParentSupported": false,
+                  "partTimeStatus": "SEARCHING",
+                  "currentTopikLevel": "LEVEL_3",
+                  "targetTopikLevel": "LEVEL_5",
+                  "language": "KOREAN"
+                }
+                """;
+    }
+
+    private String requestJsonWithoutLanguage() {
         return """
                 {
                   "name": "김철수",

@@ -92,6 +92,10 @@ public class User {
     @Column(name = "target_topik_level", length = 20, nullable = false)
     private TopikLevel targetTopikLevel;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "language", length = 20, nullable = false)
+    private Language language;
+
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
@@ -115,7 +119,8 @@ public class User {
             Boolean isParentSupported,
             PartTimeStatus partTimeStatus,
             TopikLevel currentTopikLevel,
-            TopikLevel targetTopikLevel
+            TopikLevel targetTopikLevel,
+            Language language
     ) {
         this.provider = provider;
         this.providerId = providerId;
@@ -134,6 +139,7 @@ public class User {
         this.partTimeStatus = partTimeStatus;
         this.currentTopikLevel = currentTopikLevel;
         this.targetTopikLevel = targetTopikLevel;
+        this.language = language;
     }
 
     public void updateProfile(
@@ -150,7 +156,8 @@ public class User {
             Boolean isParentSupported,
             PartTimeStatus partTimeStatus,
             TopikLevel currentTopikLevel,
-            TopikLevel targetTopikLevel
+            TopikLevel targetTopikLevel,
+            Language language
     ) {
         if (name != null) {
             this.name = name;
@@ -193,6 +200,9 @@ public class User {
         }
         if (targetTopikLevel != null) {
             this.targetTopikLevel = targetTopikLevel;
+        }
+        if (language != null) {
+            this.language = language;
         }
     }
 
