@@ -2,6 +2,8 @@ package com.example.kbuddy.global.security;
 
 import com.example.kbuddy.auth.jwt.JwtProperties;
 import com.example.kbuddy.auth.jwt.JwtProvider;
+import com.example.kbuddy.auth.service.OAuth2UserService;
+import com.example.kbuddy.user.repository.UserRepository;
 import com.nimbusds.jose.jwk.JWKSet;
 import com.nimbusds.jose.jwk.RSAKey;
 import com.nimbusds.jose.jwk.source.ImmutableJWKSet;
@@ -12,6 +14,11 @@ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
+import org.springframework.security.oauth2.client.registration.ClientRegistration;
+import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
+import org.springframework.security.oauth2.client.registration.InMemoryClientRegistrationRepository;
+import org.springframework.security.oauth2.core.AuthorizationGrantType;
+import org.springframework.security.oauth2.core.ClientAuthenticationMethod;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
@@ -25,11 +32,12 @@ import java.security.interfaces.RSAPublicKey;
 import java.time.Duration;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest
-@Import({SecurityConfig.class, JwtProvider.class, SecurityConfigTest.TestKeyConfig.class})
+@Import({SecurityConfig.class, JwtProvider.class, OAuth2UserService.class, SecurityConfigTest.TestKeyConfig.class})
 class SecurityConfigTest {
 
     @Autowired
@@ -64,6 +72,12 @@ class SecurityConfigTest {
                 .andExpect(status().isUnauthorized());
     }
 
+    @Test
+    void oauth2_인가_요청_경로는_인증_없이_401이_아니다() throws Exception {
+        mockMvc.perform(get("/oauth2/authorization/google"))
+                .andExpect(result -> assertThat(result.getResponse().getStatus()).isNotEqualTo(401));
+    }
+
     @TestConfiguration
     static class TestKeyConfig {
 
@@ -90,6 +104,48 @@ class SecurityConfigTest {
         @Bean
         JwtProperties jwtProperties() {
             return new JwtProperties("kbuddy-test", null, null, Duration.ofMinutes(10), Duration.ofHours(1));
+        }
+
+        @Bean
+        UserRepository userRepository() {
+            return mock(UserRepository.class);
+        }
+
+        @Bean
+        ClientRegistrationRepository clientRegistrationRepository() {
+            return new InMemoryClientRegistrationRepository(googleClientRegistration(), kakaoClientRegistration());
+        }
+
+        private ClientRegistration googleClientRegistration() {
+            return ClientRegistration.withRegistrationId("google")
+                    .clientId("test-google-client-id")
+                    .clientSecret("test-google-client-secret")
+                    .clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_BASIC)
+                    .authorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE)
+                    .redirectUri("{baseUrl}/login/oauth2/code/{registrationId}")
+                    .scope("openid", "profile", "email")
+                    .authorizationUri("https://accounts.google.com/o/oauth2/v2/auth")
+                    .tokenUri("https://www.googleapis.com/oauth2/v4/token")
+                    .userInfoUri("https://www.googleapis.com/oauth2/v3/userinfo")
+                    .userNameAttributeName("sub")
+                    .clientName("Google")
+                    .build();
+        }
+
+        private ClientRegistration kakaoClientRegistration() {
+            return ClientRegistration.withRegistrationId("kakao")
+                    .clientId("test-kakao-client-id")
+                    .clientSecret("test-kakao-client-secret")
+                    .clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_POST)
+                    .authorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE)
+                    .redirectUri("{baseUrl}/login/oauth2/code/{registrationId}")
+                    .scope("profile_nickname", "account_email")
+                    .authorizationUri("https://kauth.kakao.com/oauth/authorize")
+                    .tokenUri("https://kauth.kakao.com/oauth/token")
+                    .userInfoUri("https://kapi.kakao.com/v2/user/me")
+                    .userNameAttributeName("id")
+                    .clientName("Kakao")
+                    .build();
         }
     }
 }
