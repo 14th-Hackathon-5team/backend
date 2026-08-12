@@ -57,7 +57,8 @@ public class UserService {
                 request.isParentSupported(),
                 request.partTimeStatus(),
                 request.currentTopikLevel(),
-                request.targetTopikLevel()
+                request.targetTopikLevel(),
+                request.language()
         );
 
         User savedUser = userRepository.save(user);
@@ -87,7 +88,8 @@ public class UserService {
                 user.getIsParentSupported(),
                 user.getPartTimeStatus(),
                 user.getCurrentTopikLevel(),
-                user.getTargetTopikLevel()
+                user.getTargetTopikLevel(),
+                user.getLanguage()
         );
     }
 
@@ -114,7 +116,8 @@ public class UserService {
                 request.isParentSupported(),
                 request.partTimeStatus(),
                 request.currentTopikLevel(),
-                request.targetTopikLevel()
+                request.targetTopikLevel(),
+                request.language()
         );
 
         return new UserResponse(
@@ -133,7 +136,8 @@ public class UserService {
                 user.getIsParentSupported(),
                 user.getPartTimeStatus(),
                 user.getCurrentTopikLevel(),
-                user.getTargetTopikLevel()
+                user.getTargetTopikLevel(),
+                user.getLanguage()
         );
     }
 
@@ -151,7 +155,8 @@ public class UserService {
                 && request.isParentSupported() == null
                 && request.partTimeStatus() == null
                 && request.currentTopikLevel() == null
-                && request.targetTopikLevel() == null;
+                && request.targetTopikLevel() == null
+                && request.language() == null;
     }
 
     private void validateSignupTokenType(Jwt jwt) {

@@ -37,7 +37,8 @@ class UserTest {
                 false,
                 PartTimeStatus.SEARCHING,
                 TopikLevel.LEVEL_3,
-                TopikLevel.LEVEL_5
+                TopikLevel.LEVEL_5,
+                Language.KOREAN
         );
     }
 
@@ -62,6 +63,7 @@ class UserTest {
         assertThat(user.getPartTimeStatus()).isEqualTo(PartTimeStatus.SEARCHING);
         assertThat(user.getCurrentTopikLevel()).isEqualTo(TopikLevel.LEVEL_3);
         assertThat(user.getTargetTopikLevel()).isEqualTo(TopikLevel.LEVEL_5);
+        assertThat(user.getLanguage()).isEqualTo(Language.KOREAN);
     }
 
     @Test
@@ -83,7 +85,8 @@ class UserTest {
                 null,
                 null,
                 TopikLevel.NONE,
-                TopikLevel.LEVEL_3
+                TopikLevel.LEVEL_3,
+                Language.ENGLISH
         );
 
         assertThat(user.getSchoolName()).isNull();
@@ -140,7 +143,7 @@ class UserTest {
     void Enum_필드는_모두_EnumType_STRING으로_매핑된다() throws NoSuchFieldException {
         String[] enumFieldNames = {
                 "provider", "userStatus", "visaType", "housingType",
-                "partTimeStatus", "currentTopikLevel", "targetTopikLevel"
+                "partTimeStatus", "currentTopikLevel", "targetTopikLevel", "language"
         };
 
         for (String fieldName : enumFieldNames) {
