@@ -44,6 +44,9 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/users/me").hasAuthority("TOKEN_ACCESS")
                         .requestMatchers(HttpMethod.PATCH, "/api/users/me").hasAuthority("TOKEN_ACCESS")
                         .requestMatchers(HttpMethod.GET, "/api/guides/**").hasAuthority("TOKEN_ACCESS")
+                        .requestMatchers(HttpMethod.GET, "/api/settings/me").hasAuthority("TOKEN_ACCESS")
+                        .requestMatchers(HttpMethod.PATCH, "/api/settings/me/**").hasAuthority("TOKEN_ACCESS")
+                        .requestMatchers(HttpMethod.GET, "/api/calendar/events/**").hasAuthority("TOKEN_ACCESS")
                         .anyRequest().authenticated())
                 .oauth2Login(oauth2 -> oauth2
                         .userInfoEndpoint(userInfo ->
