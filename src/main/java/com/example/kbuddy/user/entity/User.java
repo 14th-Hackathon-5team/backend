@@ -151,8 +151,7 @@ public class User {
         this.partTimeStatus = partTimeStatus;
         this.currentTopikLevel = currentTopikLevel;
         this.targetTopikLevel = targetTopikLevel;
-        this.language = language;
-        this.preferredLanguage = AppLanguage.valueOf(language.name());
+        updateLanguage(language);
         this.alarmSetting = AlarmSetting.ALL;
         this.accountState = AccountState.ACTIVE;
     }
@@ -217,8 +216,7 @@ public class User {
             this.targetTopikLevel = targetTopikLevel;
         }
         if (language != null) {
-            this.language = language;
-            this.preferredLanguage = AppLanguage.valueOf(language.name());
+            updateLanguage(language);
         }
     }
 
@@ -237,7 +235,7 @@ public class User {
         this.createdAt = now;
         this.updatedAt = now;
         if (this.preferredLanguage == null) {
-            this.preferredLanguage = AppLanguage.valueOf(this.language.name());
+            updateLanguage(this.language);
         }
         if (this.alarmSetting == null) {
             this.alarmSetting = AlarmSetting.ALL;
@@ -250,5 +248,11 @@ public class User {
     @PreUpdate
     protected void onUpdate() {
         this.updatedAt = LocalDateTime.now();
+    }
+
+    // 기존 language API와 설정 화면의 preferredLanguage가 갈라지지 않도록 함께 맞춘다.
+    private void updateLanguage(Language language) {
+        this.language = language;
+        this.preferredLanguage = AppLanguage.valueOf(language.name());
     }
 }
