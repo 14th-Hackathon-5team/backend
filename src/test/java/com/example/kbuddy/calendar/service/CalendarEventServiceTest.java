@@ -46,7 +46,7 @@ class CalendarEventServiceTest {
         CalendarEvent event = event(
                 1L,
                 "TOPIK 접수",
-                EventCategory.TOPIK,
+                EventCategory.TOPIK_APPLICATION,
                 LocalDate.of(2026, 9, 3),
                 LocalDate.of(2026, 9, 9),
                 true
@@ -63,7 +63,7 @@ class CalendarEventServiceTest {
         assertThat(responses).hasSize(1);
         assertThat(responses.get(0).eventId()).isEqualTo(1L);
         assertThat(responses.get(0).title()).isEqualTo("TOPIK 접수");
-        assertThat(responses.get(0).category()).isEqualTo(EventCategory.TOPIK);
+        assertThat(responses.get(0).category()).isEqualTo(EventCategory.TOPIK_APPLICATION);
     }
 
     @Test
