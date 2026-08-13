@@ -1,5 +1,6 @@
 package com.example.kbuddy.calendar.controller;
 
+import com.example.kbuddy.calendar.dto.CalendarEventDetailResponse;
 import com.example.kbuddy.calendar.dto.CalendarEventResponse;
 import com.example.kbuddy.calendar.service.CalendarEventService;
 import com.example.kbuddy.global.response.ApiResponse;
@@ -15,6 +16,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -81,6 +83,33 @@ public class CalendarEventController {
         List<CalendarEventResponse> response = calendarEventService.getUpcomingEvents(userId);
         return ResponseEntity.ok(
                 ApiResponse.success("CALENDAR_UPCOMING_EVENTS_FETCHED", "임박 일정을 조회했습니다.", response)
+        );
+    }
+
+    @Operation(
+            summary = "일정 상세 조회",
+            description = "선택한 공통 일정 또는 현재 로그인한 사용자의 개인 일정 상세 설명과 관련 링크를 조회합니다."
+    )
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "200",
+                    description = "조회 성공 (code: CALENDAR_EVENT_DETAIL_FETCHED)"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "404",
+                    description = "존재하지 않는 사용자(code: USER_NOT_FOUND) 또는 일정 없음(code: CALENDAR_EVENT_NOT_FOUND)"
+            )
+    })
+    @SecurityRequirement(name = "bearerAuth")
+    @GetMapping("/{eventId}")
+    public ResponseEntity<ApiResponse<CalendarEventDetailResponse>> getEventDetail(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable Long eventId
+    ) {
+        Long userId = Long.valueOf(jwt.getSubject());
+        CalendarEventDetailResponse response = calendarEventService.getEventDetail(userId, eventId);
+        return ResponseEntity.ok(
+                ApiResponse.success("CALENDAR_EVENT_DETAIL_FETCHED", "일정 상세 정보를 조회했습니다.", response)
         );
     }
 }

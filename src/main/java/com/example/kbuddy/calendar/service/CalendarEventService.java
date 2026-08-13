@@ -1,6 +1,8 @@
 package com.example.kbuddy.calendar.service;
 
+import com.example.kbuddy.calendar.dto.CalendarEventDetailResponse;
 import com.example.kbuddy.calendar.dto.CalendarEventResponse;
+import com.example.kbuddy.calendar.entity.CalendarEvent;
 import com.example.kbuddy.calendar.repository.CalendarEventRepository;
 import com.example.kbuddy.global.exception.BusinessException;
 import com.example.kbuddy.global.exception.ErrorCode;
@@ -41,6 +43,15 @@ public class CalendarEventService {
         return calendarEventRepository.findVisibleEventsBetween(userId, today, sevenDaysLater).stream()
                 .map(CalendarEventResponse::from)
                 .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public CalendarEventDetailResponse getEventDetail(Long userId, Long eventId) {
+        validateUserExists(userId);
+        CalendarEvent event = calendarEventRepository.findVisibleEventById(userId, eventId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.CALENDAR_EVENT_NOT_FOUND));
+
+        return CalendarEventDetailResponse.from(event);
     }
 
     private void validateUserExists(Long userId) {

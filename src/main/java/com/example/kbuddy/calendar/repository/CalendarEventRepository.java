@@ -7,6 +7,7 @@ import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 
 public interface CalendarEventRepository extends JpaRepository<CalendarEvent, Long> {
 
@@ -22,5 +23,16 @@ public interface CalendarEventRepository extends JpaRepository<CalendarEvent, Lo
             @Param("userId") Long userId,
             @Param("startDate") LocalDate startDate,
             @Param("endDate") LocalDate endDate
+    );
+
+    @Query("""
+            select e
+            from CalendarEvent e
+            where (e.isGlobal = true or e.user.id = :userId)
+              and e.id = :eventId
+            """)
+    Optional<CalendarEvent> findVisibleEventById(
+            @Param("userId") Long userId,
+            @Param("eventId") Long eventId
     );
 }

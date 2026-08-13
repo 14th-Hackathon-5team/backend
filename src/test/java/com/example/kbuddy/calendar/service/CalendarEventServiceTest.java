@@ -1,5 +1,6 @@
 package com.example.kbuddy.calendar.service;
 
+import com.example.kbuddy.calendar.dto.CalendarEventDetailResponse;
 import com.example.kbuddy.calendar.dto.CalendarEventResponse;
 import com.example.kbuddy.calendar.entity.CalendarEvent;
 import com.example.kbuddy.calendar.entity.EventCategory;
@@ -16,6 +17,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.List;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -72,6 +74,40 @@ class CalendarEventServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.USER_NOT_FOUND);
+    }
+
+    @Test
+    void 일정_상세를_조회할_수_있다() {
+        CalendarEvent event = event(
+                10L,
+                "비자 만료 알림",
+                EventCategory.VISA,
+                LocalDate.of(2026, 10, 1),
+                null,
+                false
+        );
+        when(event.getDescription()).thenReturn("체류 기간 만료 전에 연장 신청이 필요합니다.");
+        when(event.getRelatedLink()).thenReturn("https://www.hikorea.go.kr");
+        when(userRepository.existsById(1L)).thenReturn(true);
+        when(calendarEventRepository.findVisibleEventById(1L, 10L)).thenReturn(Optional.of(event));
+
+        CalendarEventDetailResponse response = calendarEventService.getEventDetail(1L, 10L);
+
+        assertThat(response.eventId()).isEqualTo(10L);
+        assertThat(response.category()).isEqualTo(EventCategory.VISA);
+        assertThat(response.description()).isEqualTo("체류 기간 만료 전에 연장 신청이 필요합니다.");
+        assertThat(response.relatedLink()).isEqualTo("https://www.hikorea.go.kr");
+    }
+
+    @Test
+    void 조회할_수_없는_일정이면_CALENDAR_EVENT_NOT_FOUND_예외가_발생한다() {
+        when(userRepository.existsById(1L)).thenReturn(true);
+        when(calendarEventRepository.findVisibleEventById(1L, 999L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> calendarEventService.getEventDetail(1L, 999L))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.CALENDAR_EVENT_NOT_FOUND);
     }
 
     @Test

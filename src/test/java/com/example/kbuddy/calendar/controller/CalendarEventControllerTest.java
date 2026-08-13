@@ -1,8 +1,11 @@
 package com.example.kbuddy.calendar.controller;
 
+import com.example.kbuddy.calendar.dto.CalendarEventDetailResponse;
 import com.example.kbuddy.calendar.dto.CalendarEventResponse;
 import com.example.kbuddy.calendar.entity.EventCategory;
 import com.example.kbuddy.calendar.service.CalendarEventService;
+import com.example.kbuddy.global.exception.BusinessException;
+import com.example.kbuddy.global.exception.ErrorCode;
 import com.example.kbuddy.global.exception.GlobalExceptionHandler;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -81,6 +84,42 @@ class CalendarEventControllerTest {
                 .andExpect(jsonPath("$.code").value("CALENDAR_UPCOMING_EVENTS_FETCHED"))
                 .andExpect(jsonPath("$.data[0].eventId").value(2))
                 .andExpect(jsonPath("$.data[0].isGlobal").value(false));
+    }
+
+    @Test
+    void 일정_상세_조회가_정상이면_200과_상세_정보를_반환한다() throws Exception {
+        when(calendarEventService.getEventDetail(1L, 10L))
+                .thenReturn(new CalendarEventDetailResponse(
+                        10L,
+                        "전입신고 안내",
+                        EventCategory.LEGAL,
+                        LocalDate.of(2026, 9, 15),
+                        null,
+                        true,
+                        "거주지 변경 시 전입신고가 필요합니다.",
+                        "https://www.gov.kr"
+                ));
+
+        mockMvc.perform(get("/api/calendar/events/10")
+                        .with(jwt().jwt(builder -> builder.subject("1"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.code").value("CALENDAR_EVENT_DETAIL_FETCHED"))
+                .andExpect(jsonPath("$.data.eventId").value(10))
+                .andExpect(jsonPath("$.data.description").value("거주지 변경 시 전입신고가 필요합니다."))
+                .andExpect(jsonPath("$.data.relatedLink").value("https://www.gov.kr"));
+    }
+
+    @Test
+    void 일정이_없으면_404를_반환한다() throws Exception {
+        when(calendarEventService.getEventDetail(1L, 999L))
+                .thenThrow(new BusinessException(ErrorCode.CALENDAR_EVENT_NOT_FOUND));
+
+        mockMvc.perform(get("/api/calendar/events/999")
+                        .with(jwt().jwt(builder -> builder.subject("1"))))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.code").value("CALENDAR_EVENT_NOT_FOUND"));
     }
 
     @TestConfiguration
