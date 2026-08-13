@@ -1,6 +1,9 @@
 package com.example.kbuddy.guide.controller;
 
+import com.example.kbuddy.global.exception.BusinessException;
+import com.example.kbuddy.global.exception.ErrorCode;
 import com.example.kbuddy.global.exception.GlobalExceptionHandler;
+import com.example.kbuddy.guide.dto.GuideDetailResponse;
 import com.example.kbuddy.guide.dto.GuideResponse;
 import com.example.kbuddy.guide.entity.GuideCategory;
 import com.example.kbuddy.guide.service.GuideService;
@@ -51,6 +54,39 @@ class GuideControllerTest {
                 .andExpect(jsonPath("$.code").value("GUIDE_LIST_FETCHED"))
                 .andExpect(jsonPath("$.data[0].guideId").value(1))
                 .andExpect(jsonPath("$.data[0].category").value("VISA"));
+    }
+
+    @Test
+    void 가이드_상세_조회가_정상이면_200과_상세_정보를_반환한다() throws Exception {
+        when(guideService.getGuideDetail(1L))
+                .thenReturn(new GuideDetailResponse(
+                        1L,
+                        GuideCategory.VISA,
+                        "D-2 비자 연장 방법",
+                        "D-2 비자는 학기 종료 전 연장 신청이 필요합니다.",
+                        "https://www.hikorea.go.kr"
+                ));
+
+        mockMvc.perform(get("/api/guides/1")
+                        .with(jwt()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.code").value("GUIDE_DETAIL_FETCHED"))
+                .andExpect(jsonPath("$.data.guideId").value(1))
+                .andExpect(jsonPath("$.data.content").value("D-2 비자는 학기 종료 전 연장 신청이 필요합니다."))
+                .andExpect(jsonPath("$.data.referenceUrl").value("https://www.hikorea.go.kr"));
+    }
+
+    @Test
+    void 가이드가_없으면_404를_반환한다() throws Exception {
+        when(guideService.getGuideDetail(999L))
+                .thenThrow(new BusinessException(ErrorCode.GUIDE_NOT_FOUND));
+
+        mockMvc.perform(get("/api/guides/999")
+                        .with(jwt()))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.code").value("GUIDE_NOT_FOUND"));
     }
 
     @TestConfiguration

@@ -1,6 +1,10 @@
 package com.example.kbuddy.guide.service;
 
+import com.example.kbuddy.global.exception.BusinessException;
+import com.example.kbuddy.global.exception.ErrorCode;
+import com.example.kbuddy.guide.dto.GuideDetailResponse;
 import com.example.kbuddy.guide.dto.GuideResponse;
+import com.example.kbuddy.guide.entity.Guide;
 import com.example.kbuddy.guide.entity.GuideCategory;
 import com.example.kbuddy.guide.repository.GuideRepository;
 import lombok.RequiredArgsConstructor;
@@ -20,5 +24,13 @@ public class GuideService {
         return guideRepository.findByCategoryOrderByIdAsc(category).stream()
                 .map(GuideResponse::from)
                 .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public GuideDetailResponse getGuideDetail(Long guideId) {
+        Guide guide = guideRepository.findById(guideId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.GUIDE_NOT_FOUND));
+
+        return GuideDetailResponse.from(guide);
     }
 }
