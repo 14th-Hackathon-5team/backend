@@ -57,4 +57,30 @@ public class CalendarEventController {
                 ApiResponse.success("CALENDAR_MONTHLY_EVENTS_FETCHED", "월별 일정을 조회했습니다.", response)
         );
     }
+
+    @Operation(
+            summary = "임박 일정 조회",
+            description = "오늘부터 7일 이내의 공통 일정과 현재 로그인한 사용자의 개인 일정을 조회합니다."
+    )
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "200",
+                    description = "조회 성공 (code: CALENDAR_UPCOMING_EVENTS_FETCHED)"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "404",
+                    description = "존재하지 않는 사용자 (code: USER_NOT_FOUND)"
+            )
+    })
+    @SecurityRequirement(name = "bearerAuth")
+    @GetMapping("/upcoming")
+    public ResponseEntity<ApiResponse<List<CalendarEventResponse>>> getUpcomingEvents(
+            @AuthenticationPrincipal Jwt jwt
+    ) {
+        Long userId = Long.valueOf(jwt.getSubject());
+        List<CalendarEventResponse> response = calendarEventService.getUpcomingEvents(userId);
+        return ResponseEntity.ok(
+                ApiResponse.success("CALENDAR_UPCOMING_EVENTS_FETCHED", "임박 일정을 조회했습니다.", response)
+        );
+    }
 }

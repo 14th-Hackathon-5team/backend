@@ -32,6 +32,17 @@ public class CalendarEventService {
                 .toList();
     }
 
+    @Transactional(readOnly = true)
+    public List<CalendarEventResponse> getUpcomingEvents(Long userId) {
+        validateUserExists(userId);
+        LocalDate today = LocalDate.now();
+        LocalDate sevenDaysLater = today.plusDays(7);
+
+        return calendarEventRepository.findVisibleEventsBetween(userId, today, sevenDaysLater).stream()
+                .map(CalendarEventResponse::from)
+                .toList();
+    }
+
     private void validateUserExists(Long userId) {
         if (!userRepository.existsById(userId)) {
             throw new BusinessException(ErrorCode.USER_NOT_FOUND);

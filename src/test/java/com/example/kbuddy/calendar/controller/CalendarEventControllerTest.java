@@ -62,6 +62,27 @@ class CalendarEventControllerTest {
                 .andExpect(jsonPath("$.data[0].category").value("TOPIK"));
     }
 
+    @Test
+    void 임박_일정_조회가_정상이면_200과_일정_목록을_반환한다() throws Exception {
+        when(calendarEventService.getUpcomingEvents(1L))
+                .thenReturn(List.of(new CalendarEventResponse(
+                        2L,
+                        "비자 만료 알림",
+                        EventCategory.VISA,
+                        LocalDate.of(2026, 9, 10),
+                        null,
+                        false
+                )));
+
+        mockMvc.perform(get("/api/calendar/events/upcoming")
+                        .with(jwt().jwt(builder -> builder.subject("1"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.code").value("CALENDAR_UPCOMING_EVENTS_FETCHED"))
+                .andExpect(jsonPath("$.data[0].eventId").value(2))
+                .andExpect(jsonPath("$.data[0].isGlobal").value(false));
+    }
+
     @TestConfiguration
     static class TestConfig {
 

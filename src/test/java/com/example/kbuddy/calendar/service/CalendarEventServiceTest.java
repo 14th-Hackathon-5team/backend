@@ -20,6 +20,7 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -71,6 +72,18 @@ class CalendarEventServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.USER_NOT_FOUND);
+    }
+
+    @Test
+    void 임박_일정은_오늘부터_7일_뒤까지_조회한다() {
+        when(userRepository.existsById(1L)).thenReturn(true);
+        when(calendarEventRepository.findVisibleEventsBetween(1L, LocalDate.now(), LocalDate.now().plusDays(7)))
+                .thenReturn(List.of());
+
+        List<CalendarEventResponse> responses = calendarEventService.getUpcomingEvents(1L);
+
+        assertThat(responses).isEmpty();
+        verify(calendarEventRepository).findVisibleEventsBetween(1L, LocalDate.now(), LocalDate.now().plusDays(7));
     }
 
     private CalendarEvent event(
