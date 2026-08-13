@@ -5,6 +5,7 @@ import com.example.kbuddy.auth.jwt.JwtProvider;
 import com.example.kbuddy.auth.oauth.AuthProvider;
 import com.example.kbuddy.auth.service.OAuth2LoginSuccessHandler;
 import com.example.kbuddy.auth.service.OAuth2UserService;
+import com.example.kbuddy.calendar.service.CalendarEventService;
 import com.example.kbuddy.user.repository.UserRepository;
 import com.example.kbuddy.user.service.UserService;
 import com.nimbusds.jose.jwk.JWKSet;
@@ -167,6 +168,11 @@ class SecurityConfigTest {
         @Bean
         UserService userService() {
             return mock(UserService.class);
+        }
+
+        @Bean
+        CalendarEventService calendarEventService() {
+            return mock(CalendarEventService.class);
         }
 
         @Bean
