@@ -6,6 +6,7 @@ import com.example.kbuddy.auth.oauth.AuthProvider;
 import com.example.kbuddy.global.exception.BusinessException;
 import com.example.kbuddy.global.exception.ErrorCode;
 import com.example.kbuddy.user.dto.UserResponse;
+import com.example.kbuddy.user.dto.UserSettingsResponse;
 import com.example.kbuddy.user.dto.UserSignupRequest;
 import com.example.kbuddy.user.dto.UserSignupResponse;
 import com.example.kbuddy.user.dto.UserUpdateRequest;
@@ -141,6 +142,12 @@ public class UserService {
         );
     }
 
+    @Transactional(readOnly = true)
+    public UserSettingsResponse getSettings(Long userId) {
+        User user = findUserById(userId);
+        return toSettingsResponse(user);
+    }
+
     private boolean hasNoUpdatableValue(UserUpdateRequest request) {
         return request.name() == null
                 && request.nationality() == null
@@ -157,6 +164,19 @@ public class UserService {
                 && request.currentTopikLevel() == null
                 && request.targetTopikLevel() == null
                 && request.language() == null;
+    }
+
+    private User findUserById(Long userId) {
+        return userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+    }
+
+    private UserSettingsResponse toSettingsResponse(User user) {
+        return new UserSettingsResponse(
+                user.getPreferredLanguage(),
+                user.getAlarmSetting(),
+                user.getAccountState()
+        );
     }
 
     private void validateSignupTokenType(Jwt jwt) {
