@@ -174,6 +174,9 @@ class SecurityConfigTest {
         @Bean
         GuideService guideService() {
             return mock(GuideService.class);
+        }
+
+        @Bean
         CalendarEventService calendarEventService() {
             return mock(CalendarEventService.class);
         }
