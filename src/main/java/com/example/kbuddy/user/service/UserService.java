@@ -10,6 +10,7 @@ import com.example.kbuddy.user.dto.UserSettingsResponse;
 import com.example.kbuddy.user.dto.UserSignupRequest;
 import com.example.kbuddy.user.dto.UserSignupResponse;
 import com.example.kbuddy.user.dto.UserUpdateRequest;
+import com.example.kbuddy.user.entity.AlarmSetting;
 import com.example.kbuddy.user.entity.AppLanguage;
 import com.example.kbuddy.user.entity.User;
 import com.example.kbuddy.user.repository.UserRepository;
@@ -153,6 +154,13 @@ public class UserService {
     public UserSettingsResponse updatePreferredLanguage(Long userId, AppLanguage preferredLanguage) {
         User user = findUserById(userId);
         user.updatePreferredLanguage(preferredLanguage);
+        return toSettingsResponse(user);
+    }
+
+    @Transactional
+    public UserSettingsResponse updateAlarmSetting(Long userId, AlarmSetting alarmSetting) {
+        User user = findUserById(userId);
+        user.updateAlarmSetting(alarmSetting);
         return toSettingsResponse(user);
     }
 

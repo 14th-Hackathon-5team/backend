@@ -70,6 +70,17 @@ class UserSettingsServiceTest {
     }
 
     @Test
+    void 알림_설정을_변경할_수_있다() {
+        User user = baselineUser();
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+
+        UserSettingsResponse response = userService.updateAlarmSetting(1L, AlarmSetting.ESSENTAL_ONLY);
+
+        assertThat(response.alarmSetting()).isEqualTo(AlarmSetting.ESSENTAL_ONLY);
+        assertThat(user.getAlarmSetting()).isEqualTo(AlarmSetting.ESSENTAL_ONLY);
+    }
+
+    @Test
     void 존재하지_않는_사용자의_설정_조회는_USER_NOT_FOUND_예외가_발생한다() {
         when(userRepository.findById(999L)).thenReturn(Optional.empty());
 

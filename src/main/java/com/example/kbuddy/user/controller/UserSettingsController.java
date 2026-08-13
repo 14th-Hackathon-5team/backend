@@ -1,6 +1,7 @@
 package com.example.kbuddy.user.controller;
 
 import com.example.kbuddy.global.response.ApiResponse;
+import com.example.kbuddy.user.dto.AlarmSettingUpdateRequest;
 import com.example.kbuddy.user.dto.LanguageSettingUpdateRequest;
 import com.example.kbuddy.user.dto.UserSettingsResponse;
 import com.example.kbuddy.user.service.UserService;
@@ -65,6 +66,23 @@ public class UserSettingsController {
         UserSettingsResponse response = userService.updatePreferredLanguage(userId, request.preferredLanguage());
         return ResponseEntity.ok(
                 ApiResponse.success("USER_LANGUAGE_SETTING_UPDATED", "언어 설정을 변경했습니다.", response)
+        );
+    }
+
+    @Operation(
+            summary = "알림 설정 변경",
+            description = "현재 로그인한 사용자의 푸시 알림 수신 범위를 변경합니다."
+    )
+    @SecurityRequirement(name = "bearerAuth")
+    @PatchMapping("/alarm")
+    public ResponseEntity<ApiResponse<UserSettingsResponse>> updateAlarmSetting(
+            @AuthenticationPrincipal Jwt jwt,
+            @Valid @RequestBody AlarmSettingUpdateRequest request
+    ) {
+        Long userId = Long.valueOf(jwt.getSubject());
+        UserSettingsResponse response = userService.updateAlarmSetting(userId, request.alarmSetting());
+        return ResponseEntity.ok(
+                ApiResponse.success("USER_ALARM_SETTING_UPDATED", "알림 설정을 변경했습니다.", response)
         );
     }
 }

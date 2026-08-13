@@ -227,6 +227,10 @@ public class User {
         this.language = Language.valueOf(preferredLanguage.name());
     }
 
+    public void updateAlarmSetting(AlarmSetting alarmSetting) {
+        this.alarmSetting = alarmSetting;
+    }
+
     @PrePersist
     protected void onCreate() {
         LocalDateTime now = LocalDateTime.now();
