@@ -58,6 +58,18 @@ class UserSettingsServiceTest {
     }
 
     @Test
+    void 언어_설정을_변경하면_preferredLanguage와_기존_language가_함께_변경된다() {
+        User user = baselineUser();
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+
+        UserSettingsResponse response = userService.updatePreferredLanguage(1L, AppLanguage.ENGLISH);
+
+        assertThat(response.preferredLanguage()).isEqualTo(AppLanguage.ENGLISH);
+        assertThat(user.getPreferredLanguage()).isEqualTo(AppLanguage.ENGLISH);
+        assertThat(user.getLanguage()).isEqualTo(Language.ENGLISH);
+    }
+
+    @Test
     void 존재하지_않는_사용자의_설정_조회는_USER_NOT_FOUND_예외가_발생한다() {
         when(userRepository.findById(999L)).thenReturn(Optional.empty());
 

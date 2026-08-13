@@ -1,17 +1,21 @@
 package com.example.kbuddy.user.controller;
 
 import com.example.kbuddy.global.response.ApiResponse;
+import com.example.kbuddy.user.dto.LanguageSettingUpdateRequest;
 import com.example.kbuddy.user.dto.UserSettingsResponse;
 import com.example.kbuddy.user.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -44,6 +48,23 @@ public class UserSettingsController {
         UserSettingsResponse response = userService.getSettings(userId);
         return ResponseEntity.ok(
                 ApiResponse.success("USER_SETTINGS_FETCHED", "설정 정보를 조회했습니다.", response)
+        );
+    }
+
+    @Operation(
+            summary = "언어 설정 변경",
+            description = "현재 로그인한 사용자의 앱 화면 표시 언어를 변경합니다."
+    )
+    @SecurityRequirement(name = "bearerAuth")
+    @PatchMapping("/language")
+    public ResponseEntity<ApiResponse<UserSettingsResponse>> updateLanguage(
+            @AuthenticationPrincipal Jwt jwt,
+            @Valid @RequestBody LanguageSettingUpdateRequest request
+    ) {
+        Long userId = Long.valueOf(jwt.getSubject());
+        UserSettingsResponse response = userService.updatePreferredLanguage(userId, request.preferredLanguage());
+        return ResponseEntity.ok(
+                ApiResponse.success("USER_LANGUAGE_SETTING_UPDATED", "언어 설정을 변경했습니다.", response)
         );
     }
 }

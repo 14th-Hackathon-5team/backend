@@ -222,6 +222,11 @@ public class User {
         }
     }
 
+    public void updatePreferredLanguage(AppLanguage preferredLanguage) {
+        this.preferredLanguage = preferredLanguage;
+        this.language = Language.valueOf(preferredLanguage.name());
+    }
+
     @PrePersist
     protected void onCreate() {
         LocalDateTime now = LocalDateTime.now();
