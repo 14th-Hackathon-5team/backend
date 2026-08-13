@@ -96,6 +96,18 @@ public class User {
     @Column(name = "language", length = 20, nullable = false)
     private Language language;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "preferred_language", length = 20, nullable = false)
+    private AppLanguage preferredLanguage;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "alarm_setting", length = 20, nullable = false)
+    private AlarmSetting alarmSetting;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "account_state", length = 20, nullable = false)
+    private AccountState accountState;
+
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
@@ -139,7 +151,9 @@ public class User {
         this.partTimeStatus = partTimeStatus;
         this.currentTopikLevel = currentTopikLevel;
         this.targetTopikLevel = targetTopikLevel;
-        this.language = language;
+        updateLanguage(language);
+        this.alarmSetting = AlarmSetting.ALL;
+        this.accountState = AccountState.ACTIVE;
     }
 
     public void updateProfile(
@@ -202,8 +216,17 @@ public class User {
             this.targetTopikLevel = targetTopikLevel;
         }
         if (language != null) {
-            this.language = language;
+            updateLanguage(language);
         }
+    }
+
+    public void updatePreferredLanguage(AppLanguage preferredLanguage) {
+        this.preferredLanguage = preferredLanguage;
+        this.language = Language.valueOf(preferredLanguage.name());
+    }
+
+    public void updateAlarmSetting(AlarmSetting alarmSetting) {
+        this.alarmSetting = alarmSetting;
     }
 
     @PrePersist
@@ -211,10 +234,25 @@ public class User {
         LocalDateTime now = LocalDateTime.now();
         this.createdAt = now;
         this.updatedAt = now;
+        if (this.preferredLanguage == null) {
+            updateLanguage(this.language);
+        }
+        if (this.alarmSetting == null) {
+            this.alarmSetting = AlarmSetting.ALL;
+        }
+        if (this.accountState == null) {
+            this.accountState = AccountState.ACTIVE;
+        }
     }
 
     @PreUpdate
     protected void onUpdate() {
         this.updatedAt = LocalDateTime.now();
+    }
+
+    // 기존 language API와 설정 화면의 preferredLanguage가 갈라지지 않도록 함께 맞춘다.
+    private void updateLanguage(Language language) {
+        this.language = language;
+        this.preferredLanguage = AppLanguage.valueOf(language.name());
     }
 }
