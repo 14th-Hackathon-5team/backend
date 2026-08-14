@@ -2,6 +2,9 @@
 -- Spring Boot가 자동 실행하지 않는 파일입니다. 배포 시 DB에 1회 수동으로 실행해주세요.
 -- (재시작마다 자동 실행되면 중복 삽입되므로 data.sql로 두지 않았습니다.)
 --
+-- 주의: 이 스크립트는 category 컬럼에 TOPIK_APPLICATION/TOPIK_EXAM 값을 사용합니다.
+-- 반드시 alter_category_enum.sql을 먼저 실행해 category ENUM을 변경한 뒤 이 스크립트를 실행하세요.
+--
 -- TOPIK 일정 출처: topik.go.kr 공식 회차 안내표 (2026.08 기준, 한국 접수/응시 기준)
 -- 이미 접수가 마감된 회차는 시험일이 지나지 않은 것만 포함했습니다.
 -- 가이드 본문(content)은 초안이며, 배포 전 팀 검수가 필요합니다.

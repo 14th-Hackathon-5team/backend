@@ -146,6 +146,36 @@ class CalendarEventServiceTest {
     }
 
     @Test
+    void D_30_가상_일정_상세를_조회할_수_있다() {
+        User user = mock(User.class);
+        when(user.getStayExpirationDate()).thenReturn(LocalDate.of(2026, 10, 1));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+
+        CalendarEventDetailResponse response = calendarEventService.getEventDetail(1L, -1L);
+
+        assertThat(response.eventId()).isEqualTo(-1L);
+        assertThat(response.title()).isEqualTo("체류기간 만료 30일 전 안내");
+        assertThat(response.category()).isEqualTo(EventCategory.VISA);
+        assertThat(response.startDate()).isEqualTo(LocalDate.of(2026, 9, 1));
+        assertThat(response.endDate()).isNull();
+        assertThat(response.isGlobal()).isFalse();
+        assertThat(response.description()).isNotBlank();
+        assertThat(response.relatedLink()).isNotBlank();
+    }
+
+    @Test
+    void 체류기간_만료일이_없으면_D_30_가상_일정_상세_조회는_CALENDAR_EVENT_NOT_FOUND_예외가_발생한다() {
+        User user = mock(User.class);
+        when(user.getStayExpirationDate()).thenReturn(null);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+
+        assertThatThrownBy(() -> calendarEventService.getEventDetail(1L, -1L))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.CALENDAR_EVENT_NOT_FOUND);
+    }
+
+    @Test
     void 임박_일정은_오늘부터_7일_뒤까지_조회한다() {
         User user = user(1L, null);
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));

@@ -26,6 +26,10 @@ public class CalendarEventService {
 
     private static final long VISA_EXPIRATION_REMINDER_DAYS_BEFORE = 30;
     private static final Long VISA_EXPIRATION_REMINDER_EVENT_ID = -1L;
+    private static final String VISA_EXPIRATION_REMINDER_TITLE = "체류기간 만료 30일 전 안내";
+    private static final String VISA_EXPIRATION_REMINDER_DESCRIPTION =
+            "체류기간이 30일 후 만료됩니다. 체류기간 연장 등 필요한 절차를 미리 준비하세요.";
+    private static final String VISA_EXPIRATION_REMINDER_RELATED_LINK = "https://www.hikorea.go.kr";
 
     private final CalendarEventRepository calendarEventRepository;
     private final UserRepository userRepository;
@@ -51,6 +55,10 @@ public class CalendarEventService {
 
     @Transactional(readOnly = true)
     public CalendarEventDetailResponse getEventDetail(Long userId, Long eventId) {
+        if (VISA_EXPIRATION_REMINDER_EVENT_ID.equals(eventId)) {
+            return getVisaExpirationReminderDetail(userId);
+        }
+
         validateUserExists(userId);
         CalendarEvent event = calendarEventRepository.findVisibleEventById(userId, eventId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.CALENDAR_EVENT_NOT_FOUND));
@@ -89,12 +97,33 @@ public class CalendarEventService {
 
         return Optional.of(new CalendarEventResponse(
                 VISA_EXPIRATION_REMINDER_EVENT_ID,
-                "체류기간 만료 30일 전 안내",
+                VISA_EXPIRATION_REMINDER_TITLE,
                 EventCategory.VISA,
                 reminderDate,
                 null,
                 false
         ));
+    }
+
+    private CalendarEventDetailResponse getVisaExpirationReminderDetail(Long userId) {
+        User user = findUserById(userId);
+        LocalDate stayExpirationDate = user.getStayExpirationDate();
+        if (stayExpirationDate == null) {
+            throw new BusinessException(ErrorCode.CALENDAR_EVENT_NOT_FOUND);
+        }
+
+        LocalDate reminderDate = stayExpirationDate.minusDays(VISA_EXPIRATION_REMINDER_DAYS_BEFORE);
+
+        return new CalendarEventDetailResponse(
+                VISA_EXPIRATION_REMINDER_EVENT_ID,
+                VISA_EXPIRATION_REMINDER_TITLE,
+                EventCategory.VISA,
+                reminderDate,
+                null,
+                false,
+                VISA_EXPIRATION_REMINDER_DESCRIPTION,
+                VISA_EXPIRATION_REMINDER_RELATED_LINK
+        );
     }
 
     private void validateUserExists(Long userId) {
