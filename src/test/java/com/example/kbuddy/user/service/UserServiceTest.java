@@ -230,7 +230,7 @@ class UserServiceTest {
         when(user.getId()).thenReturn(1L);
         when(user.getEmail()).thenReturn("test@gmail.com");
         when(user.getName()).thenReturn("김철수");
-        when(user.getNationality()).thenReturn("중국");
+        when(user.getNationality()).thenReturn("CN");
         when(user.getBirthYear()).thenReturn(2000);
         when(user.getUserStatus()).thenReturn(UserStatus.UNDERGRADUATE);
         when(user.getSchoolName()).thenReturn("서울대학교");
@@ -251,7 +251,7 @@ class UserServiceTest {
         assertThat(response.id()).isEqualTo(1L);
         assertThat(response.email()).isEqualTo("test@gmail.com");
         assertThat(response.name()).isEqualTo("김철수");
-        assertThat(response.nationality()).isEqualTo("중국");
+        assertThat(response.nationality()).isEqualTo("CN");
         assertThat(response.birthYear()).isEqualTo(2000);
         assertThat(response.userStatus()).isEqualTo(UserStatus.UNDERGRADUATE);
         assertThat(response.schoolName()).isEqualTo("서울대학교");
@@ -293,7 +293,7 @@ class UserServiceTest {
 
         assertThat(response.schoolName()).isEqualTo("연세대학교");
         assertThat(response.name()).isEqualTo("김철수");
-        assertThat(response.nationality()).isEqualTo("중국");
+        assertThat(response.nationality()).isEqualTo("CN");
         assertThat(response.birthYear()).isEqualTo(2000);
         assertThat(response.userStatus()).isEqualTo(UserStatus.UNDERGRADUATE);
         assertThat(response.entryDate()).isEqualTo(LocalDate.of(2022, 3, 1));
@@ -325,7 +325,7 @@ class UserServiceTest {
         assertThat(response.birthYear()).isEqualTo(1998);
         assertThat(response.housingType()).isEqualTo(HousingType.RENT);
         assertThat(response.partTimeStatus()).isEqualTo(PartTimeStatus.WORKING);
-        assertThat(response.nationality()).isEqualTo("중국");
+        assertThat(response.nationality()).isEqualTo("CN");
         assertThat(response.schoolName()).isEqualTo("서울대학교");
     }
 
@@ -336,7 +336,7 @@ class UserServiceTest {
 
         UserUpdateRequest request = new UserUpdateRequest(
                 "박영희",
-                "베트남",
+                "VN",
                 1998,
                 UserStatus.GRADUATE,
                 "연세대학교",
@@ -355,7 +355,7 @@ class UserServiceTest {
         UserResponse response = userService.updateMyInfo(1L, request);
 
         assertThat(response.name()).isEqualTo("박영희");
-        assertThat(response.nationality()).isEqualTo("베트남");
+        assertThat(response.nationality()).isEqualTo("VN");
         assertThat(response.birthYear()).isEqualTo(1998);
         assertThat(response.userStatus()).isEqualTo(UserStatus.GRADUATE);
         assertThat(response.schoolName()).isEqualTo("연세대학교");
@@ -478,7 +478,7 @@ class UserServiceTest {
         when(user.getEmail()).thenReturn("test@gmail.com");
         user.updateProfile(
                 "김철수",
-                "중국",
+                "CN",
                 2000,
                 UserStatus.UNDERGRADUATE,
                 "서울대학교",
@@ -517,7 +517,7 @@ class UserServiceTest {
     private UserSignupRequest validRequest(String name, Language language) {
         return new UserSignupRequest(
                 name,
-                "중국",
+                "CN",
                 2000,
                 UserStatus.UNDERGRADUATE,
                 "서울대학교",

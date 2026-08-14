@@ -92,6 +92,36 @@ class UserControllerTest {
     }
 
     @Test
+    void 회원가입_요청에_nationality가_소문자이면_400을_반환한다() throws Exception {
+        mockMvc.perform(post("/api/users/me")
+                        .with(jwt())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestJsonWithNationality("cn")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false));
+    }
+
+    @Test
+    void 회원가입_요청에_nationality가_3자리이면_400을_반환한다() throws Exception {
+        mockMvc.perform(post("/api/users/me")
+                        .with(jwt())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestJsonWithNationality("KOR")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false));
+    }
+
+    @Test
+    void 회원가입_요청에_nationality가_한글_국가명이면_400을_반환한다() throws Exception {
+        mockMvc.perform(post("/api/users/me")
+                        .with(jwt())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestJsonWithNationality("중국")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false));
+    }
+
+    @Test
     void BusinessException_발생시_정의한_ApiResponse_fail_형태로_응답한다() throws Exception {
         when(userService.signup(any(), any(UserSignupRequest.class)))
                 .thenThrow(new BusinessException(ErrorCode.USER_ALREADY_EXISTS));
@@ -112,7 +142,7 @@ class UserControllerTest {
                 1L,
                 "test@gmail.com",
                 "김철수",
-                "중국",
+                "CN",
                 2000,
                 UserStatus.UNDERGRADUATE,
                 "서울대학교",
@@ -156,7 +186,7 @@ class UserControllerTest {
                 1L,
                 "test@gmail.com",
                 "김철수",
-                "중국",
+                "CN",
                 2000,
                 UserStatus.UNDERGRADUATE,
                 "연세대학교",
@@ -194,7 +224,7 @@ class UserControllerTest {
                 1L,
                 "test@gmail.com",
                 "김철수",
-                "중국",
+                "CN",
                 2000,
                 UserStatus.UNDERGRADUATE,
                 "서울대학교",
@@ -271,6 +301,20 @@ class UserControllerTest {
     }
 
     @Test
+    void PATCH_요청에서_nationality가_소문자이면_400을_반환한다() throws Exception {
+        mockMvc.perform(patch("/api/users/me")
+                        .with(jwt().jwt(builder -> builder.subject("1")))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "nationality": "cn"
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false));
+    }
+
+    @Test
     void DELETE_요청이_정상이면_200을_반환한다() throws Exception {
         mockMvc.perform(delete("/api/users/me")
                         .with(jwt().jwt(builder -> builder.subject("1"))))
@@ -297,7 +341,7 @@ class UserControllerTest {
         return """
                 {
                   "name": "김철수",
-                  "nationality": "중국",
+                  "nationality": "CN",
                   "birthYear": 2000,
                   "userStatus": "UNDERGRADUATE",
                   "schoolName": "서울대학교",
@@ -319,7 +363,7 @@ class UserControllerTest {
         return """
                 {
                   "name": "김철수",
-                  "nationality": "중국",
+                  "nationality": "CN",
                   "birthYear": 2000,
                   "userStatus": "UNDERGRADUATE",
                   "schoolName": "서울대학교",
@@ -334,6 +378,28 @@ class UserControllerTest {
                   "targetTopikLevel": "LEVEL_5"
                 }
                 """;
+    }
+
+    private String requestJsonWithNationality(String nationality) {
+        return """
+                {
+                  "name": "김철수",
+                  "nationality": "%s",
+                  "birthYear": 2000,
+                  "userStatus": "UNDERGRADUATE",
+                  "schoolName": "서울대학교",
+                  "entryDate": "2022-03-01",
+                  "visaType": "D2",
+                  "hasAlienRegistration": true,
+                  "stayExpirationDate": "2027-03-01",
+                  "housingType": "DORMITORY",
+                  "isParentSupported": false,
+                  "partTimeStatus": "SEARCHING",
+                  "currentTopikLevel": "LEVEL_3",
+                  "targetTopikLevel": "LEVEL_5",
+                  "language": "KOREAN"
+                }
+                """.formatted(nationality);
     }
 
     @TestConfiguration

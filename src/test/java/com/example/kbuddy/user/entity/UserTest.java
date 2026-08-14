@@ -25,7 +25,7 @@ class UserTest {
                 "kakao-1234",
                 "student@example.com",
                 "홍길동",
-                "중국",
+                "CN",
                 2000,
                 UserStatus.UNDERGRADUATE,
                 "서울대학교",
@@ -50,7 +50,7 @@ class UserTest {
         assertThat(user.getProviderId()).isEqualTo("kakao-1234");
         assertThat(user.getEmail()).isEqualTo("student@example.com");
         assertThat(user.getName()).isEqualTo("홍길동");
-        assertThat(user.getNationality()).isEqualTo("중국");
+        assertThat(user.getNationality()).isEqualTo("CN");
         assertThat(user.getBirthYear()).isEqualTo(2000);
         assertThat(user.getUserStatus()).isEqualTo(UserStatus.UNDERGRADUATE);
         assertThat(user.getSchoolName()).isEqualTo("서울대학교");
@@ -73,7 +73,7 @@ class UserTest {
                 "google-1",
                 "before@example.com",
                 "김철수",
-                "베트남",
+                "VN",
                 2003,
                 UserStatus.BEFORE_ENTRY,
                 null,

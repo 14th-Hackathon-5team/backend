@@ -21,7 +21,7 @@ public record UserResponse(
         @Schema(description = "사용자 이름", example = "김철수")
         String name,
 
-        @Schema(description = "국적", example = "중국")
+        @Schema(description = "국적 (ISO 3166-1 alpha-2 국가 코드)", example = "CN")
         String nationality,
 
         @Schema(description = "출생 연도", example = "2000")

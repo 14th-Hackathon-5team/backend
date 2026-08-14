@@ -7,6 +7,7 @@ import com.example.kbuddy.user.entity.TopikLevel;
 import com.example.kbuddy.user.entity.UserStatus;
 import com.example.kbuddy.user.entity.VisaType;
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 import java.time.LocalDate;
@@ -29,8 +30,9 @@ public record UserUpdateRequest(
         @Size(min = 1, max = 100)
         String name,
 
-        @Schema(description = "국적 (선택, 값을 보내면 빈 문자열 불가)", example = "중국", maxLength = 100)
+        @Schema(description = "국적 (선택, ISO 3166-1 alpha-2 국가 코드)", example = "VN", pattern = "^[A-Z]{2}$", maxLength = 100)
         @Size(min = 1, max = 100)
+        @Pattern(regexp = "^[A-Z]{2}$")
         String nationality,
 
         @Schema(description = "출생 연도 (선택)", example = "2000")

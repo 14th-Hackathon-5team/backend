@@ -9,6 +9,7 @@ import com.example.kbuddy.user.entity.VisaType;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 import java.time.LocalDate;
@@ -21,9 +22,10 @@ public record UserSignupRequest(
         @Size(max = 100)
         String name,
 
-        @Schema(description = "국적", example = "중국", maxLength = 100, requiredMode = Schema.RequiredMode.REQUIRED)
+        @Schema(description = "국적 (ISO 3166-1 alpha-2 국가 코드)", example = "CN", pattern = "^[A-Z]{2}$", maxLength = 100, requiredMode = Schema.RequiredMode.REQUIRED)
         @NotBlank
         @Size(max = 100)
+        @Pattern(regexp = "^[A-Z]{2}$")
         String nationality,
 
         @Schema(description = "출생 연도", example = "2000", requiredMode = Schema.RequiredMode.REQUIRED)

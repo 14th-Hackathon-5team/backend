@@ -98,7 +98,7 @@ class UserSettingsServiceTest {
                 "109876543210987654321",
                 "test@gmail.com",
                 "김철수",
-                "중국",
+                "CN",
                 2000,
                 UserStatus.UNDERGRADUATE,
                 "서울대학교",
