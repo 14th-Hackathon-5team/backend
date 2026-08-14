@@ -2,6 +2,6 @@ package com.example.kbuddy.user.entity;
 
 public enum AlarmSetting {
     ALL,
-    ESSENTAL_ONLY,
+    ESSENTIAL_ONLY,
     NONE
 }

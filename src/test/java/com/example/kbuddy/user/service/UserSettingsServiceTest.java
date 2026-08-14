@@ -76,10 +76,10 @@ class UserSettingsServiceTest {
         User user = baselineUser();
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
 
-        UserSettingsResponse response = userService.updateAlarmSetting(1L, AlarmSetting.ESSENTAL_ONLY);
+        UserSettingsResponse response = userService.updateAlarmSetting(1L, AlarmSetting.ESSENTIAL_ONLY);
 
-        assertThat(response.alarmSetting()).isEqualTo(AlarmSetting.ESSENTAL_ONLY);
-        assertThat(user.getAlarmSetting()).isEqualTo(AlarmSetting.ESSENTAL_ONLY);
+        assertThat(response.alarmSetting()).isEqualTo(AlarmSetting.ESSENTIAL_ONLY);
+        assertThat(user.getAlarmSetting()).isEqualTo(AlarmSetting.ESSENTIAL_ONLY);
     }
 
     @Test

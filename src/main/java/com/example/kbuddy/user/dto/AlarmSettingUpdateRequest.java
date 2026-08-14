@@ -6,7 +6,7 @@ import jakarta.validation.constraints.NotNull;
 
 @Schema(description = "푸시 알림 수신 설정 변경 요청")
 public record AlarmSettingUpdateRequest(
-        @Schema(description = "변경할 푸시 알림 수신 설정", example = "ESSENTAL_ONLY", requiredMode = Schema.RequiredMode.REQUIRED)
+        @Schema(description = "변경할 푸시 알림 수신 설정", example = "ESSENTIAL_ONLY", requiredMode = Schema.RequiredMode.REQUIRED)
         @NotNull
         AlarmSetting alarmSetting
 ) {
