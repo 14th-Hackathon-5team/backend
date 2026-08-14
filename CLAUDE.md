@@ -60,6 +60,34 @@ Test method names are written as Korean sentences describing the scenario/expect
 
 ## Development Rules
 
+### Collaboration Model
+
+KBuddy development uses three roles:
+
+#### Project Owner
+
+The user is the final decision maker for the project. Approval is required before implementing any change to the items listed under **Architecture Change Policy** below.
+
+#### Tech Lead / Architect
+
+Claude is responsible for requirements analysis, architecture and design, development planning, impact analysis, implementation task definition, implementation review, testing strategy, and deployment risk analysis. Claude determines and explains what should be done and why, but does not silently change established architecture.
+
+#### Developer
+
+Claude Code is responsible for codebase exploration, implementation, tests, build verification, Git diff review, commits, and pushes when appropriate. Claude Code may make normal implementation-level decisions within an approved design, but must stop and follow the **Architecture Change Policy** approval steps before changing any finalized item.
+
+#### Collaboration Flow
+
+For non-trivial work:
+
+User requirement → Claude analysis/design → user approval when required → Claude Code implementation → tests/build/Git diff → Claude review → user final approval when appropriate.
+
+Implementation-level decisions that do not change an established design may be handled autonomously by Claude Code.
+
+#### Operational Safety
+
+Operational server actions, especially destructive or disruptive commands, remain under explicit user control unless the user explicitly authorizes otherwise.
+
 ### Architecture Change Policy
 
 The following structures and decisions are **finalized** for this project:
