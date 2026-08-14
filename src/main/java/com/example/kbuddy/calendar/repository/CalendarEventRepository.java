@@ -2,6 +2,7 @@ package com.example.kbuddy.calendar.repository;
 
 import com.example.kbuddy.calendar.entity.CalendarEvent;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -35,4 +36,11 @@ public interface CalendarEventRepository extends JpaRepository<CalendarEvent, Lo
             @Param("userId") Long userId,
             @Param("eventId") Long eventId
     );
+
+    @Modifying
+    @Query("""
+            delete from CalendarEvent e
+            where e.user.id = :userId
+            """)
+    void deleteByUserId(@Param("userId") Long userId);
 }

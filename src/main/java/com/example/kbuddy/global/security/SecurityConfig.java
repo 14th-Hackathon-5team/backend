@@ -43,6 +43,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/users/me").hasAuthority("TOKEN_SIGNUP")
                         .requestMatchers(HttpMethod.GET, "/api/users/me").hasAuthority("TOKEN_ACCESS")
                         .requestMatchers(HttpMethod.PATCH, "/api/users/me").hasAuthority("TOKEN_ACCESS")
+                        .requestMatchers(HttpMethod.DELETE, "/api/users/me").hasAuthority("TOKEN_ACCESS")
                         .requestMatchers(HttpMethod.GET, "/api/guides/**").hasAuthority("TOKEN_ACCESS")
                         .requestMatchers(HttpMethod.GET, "/api/settings/me").hasAuthority("TOKEN_ACCESS")
                         .requestMatchers(HttpMethod.PATCH, "/api/settings/me/**").hasAuthority("TOKEN_ACCESS")

@@ -2,6 +2,7 @@ package com.example.kbuddy.user.service;
 
 import com.example.kbuddy.auth.jwt.JwtProvider;
 import com.example.kbuddy.auth.oauth.AuthProvider;
+import com.example.kbuddy.calendar.repository.CalendarEventRepository;
 import com.example.kbuddy.global.exception.BusinessException;
 import com.example.kbuddy.global.exception.ErrorCode;
 import com.example.kbuddy.user.dto.UserResponse;
@@ -20,6 +21,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -34,6 +36,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.CALLS_REAL_METHODS;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -48,11 +51,14 @@ class UserServiceTest {
     @Mock
     private JwtProvider jwtProvider;
 
+    @Mock
+    private CalendarEventRepository calendarEventRepository;
+
     private UserService userService;
 
     @BeforeEach
     void setUp() {
-        userService = new UserService(userRepository, jwtProvider);
+        userService = new UserService(userRepository, jwtProvider, calendarEventRepository);
     }
 
     @Test
@@ -428,6 +434,32 @@ class UserServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.USER_UPDATE_EMPTY);
+    }
+
+    @Test
+    void 회원_탈퇴_시_개인_일정을_먼저_삭제한_후_User를_삭제한다() {
+        User user = mock(User.class);
+        when(user.getId()).thenReturn(1L);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+
+        userService.deleteMyAccount(1L);
+
+        InOrder inOrder = inOrder(calendarEventRepository, userRepository);
+        inOrder.verify(calendarEventRepository).deleteByUserId(1L);
+        inOrder.verify(userRepository).delete(user);
+    }
+
+    @Test
+    void 존재하지_않는_userId로_탈퇴하면_USER_NOT_FOUND_예외가_발생하고_삭제가_호출되지_않는다() {
+        when(userRepository.findById(999L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> userService.deleteMyAccount(999L))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.USER_NOT_FOUND);
+
+        verify(calendarEventRepository, never()).deleteByUserId(any());
+        verify(userRepository, never()).delete(any());
     }
 
     @Test

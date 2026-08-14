@@ -3,6 +3,7 @@ package com.example.kbuddy.user.service;
 import com.example.kbuddy.auth.jwt.JwtProvider;
 import com.example.kbuddy.auth.jwt.TokenType;
 import com.example.kbuddy.auth.oauth.AuthProvider;
+import com.example.kbuddy.calendar.repository.CalendarEventRepository;
 import com.example.kbuddy.global.exception.BusinessException;
 import com.example.kbuddy.global.exception.ErrorCode;
 import com.example.kbuddy.user.dto.UserResponse;
@@ -30,6 +31,7 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final JwtProvider jwtProvider;
+    private final CalendarEventRepository calendarEventRepository;
 
     @Transactional
     public UserSignupResponse signup(Jwt jwt, UserSignupRequest request) {
@@ -142,6 +144,13 @@ public class UserService {
                 user.getTargetTopikLevel(),
                 user.getLanguage()
         );
+    }
+
+    @Transactional
+    public void deleteMyAccount(Long userId) {
+        User user = findUserById(userId);
+        calendarEventRepository.deleteByUserId(user.getId());
+        userRepository.delete(user);
     }
 
     @Transactional(readOnly = true)

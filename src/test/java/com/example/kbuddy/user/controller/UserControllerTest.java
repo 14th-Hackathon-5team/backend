@@ -29,9 +29,12 @@ import java.time.LocalDate;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -265,6 +268,29 @@ class UserControllerTest {
                                 """))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.success").value(false));
+    }
+
+    @Test
+    void DELETE_요청이_정상이면_200을_반환한다() throws Exception {
+        mockMvc.perform(delete("/api/users/me")
+                        .with(jwt().jwt(builder -> builder.subject("1"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.code").value("USER_DELETED"));
+
+        verify(userService).deleteMyAccount(1L);
+    }
+
+    @Test
+    void DELETE_요청에서_USER_NOT_FOUND_예외가_발생하면_404를_반환한다() throws Exception {
+        doThrow(new BusinessException(ErrorCode.USER_NOT_FOUND))
+                .when(userService).deleteMyAccount(1L);
+
+        mockMvc.perform(delete("/api/users/me")
+                        .with(jwt().jwt(builder -> builder.subject("1"))))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.code").value("USER_NOT_FOUND"));
     }
 
     private String validRequestJson() {

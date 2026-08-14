@@ -2,6 +2,7 @@ package com.example.kbuddy.user.service;
 
 import com.example.kbuddy.auth.jwt.JwtProvider;
 import com.example.kbuddy.auth.oauth.AuthProvider;
+import com.example.kbuddy.calendar.repository.CalendarEventRepository;
 import com.example.kbuddy.global.exception.BusinessException;
 import com.example.kbuddy.global.exception.ErrorCode;
 import com.example.kbuddy.user.dto.UserSettingsResponse;
@@ -37,11 +38,14 @@ class UserSettingsServiceTest {
     @Mock
     private JwtProvider jwtProvider;
 
+    @Mock
+    private CalendarEventRepository calendarEventRepository;
+
     private UserService userService;
 
     @BeforeEach
     void setUp() {
-        userService = new UserService(userRepository, jwtProvider);
+        userService = new UserService(userRepository, jwtProvider, calendarEventRepository);
     }
 
     @Test

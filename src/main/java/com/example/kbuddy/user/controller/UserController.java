@@ -15,6 +15,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -140,6 +141,40 @@ public class UserController {
         UserResponse response = userService.updateMyInfo(userId, request);
         return ResponseEntity.ok(
                 ApiResponse.success("USER_INFO_UPDATED", "사용자 정보를 수정했습니다.", response)
+        );
+    }
+
+    @Operation(
+            summary = "회원 탈퇴",
+            description = "현재 로그인한 사용자를 탈퇴 처리합니다. 사용자가 생성한 개인 일정도 함께 삭제되며, 공통 일정은 삭제되지 않습니다. "
+                    + "이 작업은 되돌릴 수 없습니다. "
+                    + "이 API는 ACCESS_TOKEN 인증이 필요합니다(SIGNUP_TOKEN으로는 접근할 수 없습니다)."
+    )
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "200",
+                    description = "탈퇴 성공 (code: USER_DELETED)"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "401",
+                    description = "인증되지 않은 요청(토큰 없음/만료/서명 오류 등)"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "403",
+                    description = "ACCESS_TOKEN이 아닌 토큰(예: SIGNUP_TOKEN)으로 접근"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "404",
+                    description = "존재하지 않는 사용자 (code: USER_NOT_FOUND)"
+            )
+    })
+    @SecurityRequirement(name = "bearerAuth")
+    @DeleteMapping("/api/users/me")
+    public ResponseEntity<ApiResponse<Void>> deleteMyAccount(@AuthenticationPrincipal Jwt jwt) {
+        Long userId = Long.valueOf(jwt.getSubject());
+        userService.deleteMyAccount(userId);
+        return ResponseEntity.ok(
+                ApiResponse.success("USER_DELETED", "회원 탈퇴가 완료되었습니다.", null)
         );
     }
 }
