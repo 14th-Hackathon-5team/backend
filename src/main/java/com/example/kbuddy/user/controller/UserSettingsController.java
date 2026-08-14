@@ -63,7 +63,7 @@ public class UserSettingsController {
             @Valid @RequestBody LanguageSettingUpdateRequest request
     ) {
         Long userId = Long.valueOf(jwt.getSubject());
-        UserSettingsResponse response = userService.updatePreferredLanguage(userId, request.preferredLanguage());
+        UserSettingsResponse response = userService.updateLanguage(userId, request.language());
         return ResponseEntity.ok(
                 ApiResponse.success("USER_LANGUAGE_SETTING_UPDATED", "언어 설정을 변경했습니다.", response)
         );

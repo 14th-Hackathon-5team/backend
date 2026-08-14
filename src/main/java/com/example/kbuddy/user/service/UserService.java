@@ -11,7 +11,7 @@ import com.example.kbuddy.user.dto.UserSignupRequest;
 import com.example.kbuddy.user.dto.UserSignupResponse;
 import com.example.kbuddy.user.dto.UserUpdateRequest;
 import com.example.kbuddy.user.entity.AlarmSetting;
-import com.example.kbuddy.user.entity.AppLanguage;
+import com.example.kbuddy.user.entity.Language;
 import com.example.kbuddy.user.entity.User;
 import com.example.kbuddy.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -151,9 +151,9 @@ public class UserService {
     }
 
     @Transactional
-    public UserSettingsResponse updatePreferredLanguage(Long userId, AppLanguage preferredLanguage) {
+    public UserSettingsResponse updateLanguage(Long userId, Language language) {
         User user = findUserById(userId);
-        user.updatePreferredLanguage(preferredLanguage);
+        user.updateLanguage(language);
         return toSettingsResponse(user);
     }
 
@@ -189,7 +189,7 @@ public class UserService {
 
     private UserSettingsResponse toSettingsResponse(User user) {
         return new UserSettingsResponse(
-                user.getPreferredLanguage(),
+                user.getLanguage(),
                 user.getAlarmSetting(),
                 user.getAccountState()
         );

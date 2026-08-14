@@ -7,7 +7,6 @@ import com.example.kbuddy.global.exception.ErrorCode;
 import com.example.kbuddy.user.dto.UserSettingsResponse;
 import com.example.kbuddy.user.entity.AccountState;
 import com.example.kbuddy.user.entity.AlarmSetting;
-import com.example.kbuddy.user.entity.AppLanguage;
 import com.example.kbuddy.user.entity.HousingType;
 import com.example.kbuddy.user.entity.Language;
 import com.example.kbuddy.user.entity.PartTimeStatus;
@@ -52,20 +51,19 @@ class UserSettingsServiceTest {
 
         UserSettingsResponse response = userService.getSettings(1L);
 
-        assertThat(response.preferredLanguage()).isEqualTo(AppLanguage.KOREAN);
+        assertThat(response.language()).isEqualTo(Language.KOREAN);
         assertThat(response.alarmSetting()).isEqualTo(AlarmSetting.ALL);
         assertThat(response.accountState()).isEqualTo(AccountState.ACTIVE);
     }
 
     @Test
-    void 언어_설정을_변경하면_preferredLanguage와_기존_language가_함께_변경된다() {
+    void 언어_설정을_변경하면_User_language가_변경된다() {
         User user = baselineUser();
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
 
-        UserSettingsResponse response = userService.updatePreferredLanguage(1L, AppLanguage.ENGLISH);
+        UserSettingsResponse response = userService.updateLanguage(1L, Language.ENGLISH);
 
-        assertThat(response.preferredLanguage()).isEqualTo(AppLanguage.ENGLISH);
-        assertThat(user.getPreferredLanguage()).isEqualTo(AppLanguage.ENGLISH);
+        assertThat(response.language()).isEqualTo(Language.ENGLISH);
         assertThat(user.getLanguage()).isEqualTo(Language.ENGLISH);
     }
 

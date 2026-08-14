@@ -97,10 +97,6 @@ public class User {
     private Language language;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "preferred_language", length = 20, nullable = false)
-    private AppLanguage preferredLanguage;
-
-    @Enumerated(EnumType.STRING)
     @Column(name = "alarm_setting", length = 20, nullable = false)
     private AlarmSetting alarmSetting;
 
@@ -220,11 +216,6 @@ public class User {
         }
     }
 
-    public void updatePreferredLanguage(AppLanguage preferredLanguage) {
-        this.preferredLanguage = preferredLanguage;
-        this.language = Language.valueOf(preferredLanguage.name());
-    }
-
     public void updateAlarmSetting(AlarmSetting alarmSetting) {
         this.alarmSetting = alarmSetting;
     }
@@ -234,9 +225,6 @@ public class User {
         LocalDateTime now = LocalDateTime.now();
         this.createdAt = now;
         this.updatedAt = now;
-        if (this.preferredLanguage == null) {
-            updateLanguage(this.language);
-        }
         if (this.alarmSetting == null) {
             this.alarmSetting = AlarmSetting.ALL;
         }
@@ -250,9 +238,7 @@ public class User {
         this.updatedAt = LocalDateTime.now();
     }
 
-    // 기존 language API와 설정 화면의 preferredLanguage가 갈라지지 않도록 함께 맞춘다.
-    private void updateLanguage(Language language) {
+    public void updateLanguage(Language language) {
         this.language = language;
-        this.preferredLanguage = AppLanguage.valueOf(language.name());
     }
 }
