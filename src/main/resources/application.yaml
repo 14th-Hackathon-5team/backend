@@ -50,3 +50,5 @@ jwt:
 app:
   oauth2:
     redirect-uri: http://localhost:3000/oauth/callback
+  cors:
+    allowed-origin: https://frontend-chi-pied-78.vercel.app

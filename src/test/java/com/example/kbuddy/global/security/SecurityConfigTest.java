@@ -40,8 +40,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest
@@ -155,6 +157,36 @@ class SecurityConfigTest {
     void DELETE_api_users_me에_토큰_없이_요청하면_401을_반환한다() throws Exception {
         mockMvc.perform(delete("/api/users/me"))
                 .andExpect(status().isUnauthorized());
+    }
+
+    private static final String ALLOWED_ORIGIN = "https://frontend-chi-pied-78.vercel.app";
+
+    @Test
+    void 허용된_Origin의_preflight_요청은_인증_없이_허용된다() throws Exception {
+        mockMvc.perform(options("/api/users/me")
+                        .header("Origin", ALLOWED_ORIGIN)
+                        .header("Access-Control-Request-Method", "DELETE")
+                        .header("Access-Control-Request-Headers", "Authorization"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Access-Control-Allow-Origin", ALLOWED_ORIGIN));
+    }
+
+    @Test
+    void 허용된_Origin으로_인증된_요청을_보내면_Access_Control_Allow_Origin_헤더가_반환된다() throws Exception {
+        String accessToken = jwtProvider.issueAccessToken(1L);
+
+        mockMvc.perform(get("/api/users/me")
+                        .header("Authorization", "Bearer " + accessToken)
+                        .header("Origin", ALLOWED_ORIGIN))
+                .andExpect(header().string("Access-Control-Allow-Origin", ALLOWED_ORIGIN));
+    }
+
+    @Test
+    void 허용되지_않은_Origin의_preflight_요청은_거부된다() throws Exception {
+        mockMvc.perform(options("/api/users/me")
+                        .header("Origin", "https://evil.example.com")
+                        .header("Access-Control-Request-Method", "DELETE"))
+                .andExpect(status().isForbidden());
     }
 
     @TestConfiguration
