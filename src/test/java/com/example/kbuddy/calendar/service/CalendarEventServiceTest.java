@@ -7,6 +7,7 @@ import com.example.kbuddy.calendar.entity.EventCategory;
 import com.example.kbuddy.calendar.repository.CalendarEventRepository;
 import com.example.kbuddy.global.exception.BusinessException;
 import com.example.kbuddy.global.exception.ErrorCode;
+import com.example.kbuddy.user.entity.User;
 import com.example.kbuddy.user.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -46,12 +47,13 @@ class CalendarEventServiceTest {
         CalendarEvent event = event(
                 1L,
                 "TOPIK 접수",
-                EventCategory.TOPIK,
+                EventCategory.TOPIK_APPLICATION,
                 LocalDate.of(2026, 9, 3),
                 LocalDate.of(2026, 9, 9),
                 true
         );
-        when(userRepository.existsById(1L)).thenReturn(true);
+        User user = user(1L, null);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(calendarEventRepository.findVisibleEventsBetween(
                 1L,
                 YearMonth.of(2026, 9).atDay(1),
@@ -63,17 +65,50 @@ class CalendarEventServiceTest {
         assertThat(responses).hasSize(1);
         assertThat(responses.get(0).eventId()).isEqualTo(1L);
         assertThat(responses.get(0).title()).isEqualTo("TOPIK 접수");
-        assertThat(responses.get(0).category()).isEqualTo(EventCategory.TOPIK);
+        assertThat(responses.get(0).category()).isEqualTo(EventCategory.TOPIK_APPLICATION);
     }
 
     @Test
     void 존재하지_않는_사용자의_월별_일정_조회는_USER_NOT_FOUND_예외가_발생한다() {
-        when(userRepository.existsById(999L)).thenReturn(false);
+        when(userRepository.findById(999L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> calendarEventService.getMonthlyEvents(999L, 2026, 9))
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.USER_NOT_FOUND);
+    }
+
+    @Test
+    void 체류기간_만료_30일_전이면_비자_만료_알림_일정이_포함된다() {
+        User user = user(1L, LocalDate.of(2026, 10, 1));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(calendarEventRepository.findVisibleEventsBetween(
+                1L,
+                YearMonth.of(2026, 9).atDay(1),
+                YearMonth.of(2026, 9).atEndOfMonth()
+        )).thenReturn(List.of());
+
+        List<CalendarEventResponse> responses = calendarEventService.getMonthlyEvents(1L, 2026, 9);
+
+        assertThat(responses).hasSize(1);
+        assertThat(responses.get(0).title()).isEqualTo("체류기간 만료 30일 전 안내");
+        assertThat(responses.get(0).category()).isEqualTo(EventCategory.VISA);
+        assertThat(responses.get(0).startDate()).isEqualTo(LocalDate.of(2026, 9, 1));
+    }
+
+    @Test
+    void 체류기간_만료일이_조회_범위_밖이면_비자_만료_알림_일정이_포함되지_않는다() {
+        User user = user(1L, LocalDate.of(2027, 1, 1));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(calendarEventRepository.findVisibleEventsBetween(
+                1L,
+                YearMonth.of(2026, 9).atDay(1),
+                YearMonth.of(2026, 9).atEndOfMonth()
+        )).thenReturn(List.of());
+
+        List<CalendarEventResponse> responses = calendarEventService.getMonthlyEvents(1L, 2026, 9);
+
+        assertThat(responses).isEmpty();
     }
 
     @Test
@@ -111,8 +146,39 @@ class CalendarEventServiceTest {
     }
 
     @Test
+    void D_30_가상_일정_상세를_조회할_수_있다() {
+        User user = mock(User.class);
+        when(user.getStayExpirationDate()).thenReturn(LocalDate.of(2026, 10, 1));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+
+        CalendarEventDetailResponse response = calendarEventService.getEventDetail(1L, -1L);
+
+        assertThat(response.eventId()).isEqualTo(-1L);
+        assertThat(response.title()).isEqualTo("체류기간 만료 30일 전 안내");
+        assertThat(response.category()).isEqualTo(EventCategory.VISA);
+        assertThat(response.startDate()).isEqualTo(LocalDate.of(2026, 9, 1));
+        assertThat(response.endDate()).isNull();
+        assertThat(response.isGlobal()).isFalse();
+        assertThat(response.description()).isNotBlank();
+        assertThat(response.relatedLink()).isNotBlank();
+    }
+
+    @Test
+    void 체류기간_만료일이_없으면_D_30_가상_일정_상세_조회는_CALENDAR_EVENT_NOT_FOUND_예외가_발생한다() {
+        User user = mock(User.class);
+        when(user.getStayExpirationDate()).thenReturn(null);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+
+        assertThatThrownBy(() -> calendarEventService.getEventDetail(1L, -1L))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.CALENDAR_EVENT_NOT_FOUND);
+    }
+
+    @Test
     void 임박_일정은_오늘부터_7일_뒤까지_조회한다() {
-        when(userRepository.existsById(1L)).thenReturn(true);
+        User user = user(1L, null);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(calendarEventRepository.findVisibleEventsBetween(1L, LocalDate.now(), LocalDate.now().plusDays(7)))
                 .thenReturn(List.of());
 
@@ -138,5 +204,12 @@ class CalendarEventServiceTest {
         when(event.getEndDate()).thenReturn(endDate);
         when(event.getIsGlobal()).thenReturn(isGlobal);
         return event;
+    }
+
+    private User user(Long id, LocalDate stayExpirationDate) {
+        User user = mock(User.class);
+        when(user.getId()).thenReturn(id);
+        when(user.getStayExpirationDate()).thenReturn(stayExpirationDate);
+        return user;
     }
 }

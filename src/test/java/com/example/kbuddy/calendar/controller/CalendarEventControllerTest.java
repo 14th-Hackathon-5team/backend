@@ -48,7 +48,7 @@ class CalendarEventControllerTest {
                 .thenReturn(List.of(new CalendarEventResponse(
                         1L,
                         "TOPIK 접수",
-                        EventCategory.TOPIK,
+                        EventCategory.TOPIK_APPLICATION,
                         LocalDate.of(2026, 9, 3),
                         LocalDate.of(2026, 9, 9),
                         true
@@ -62,7 +62,7 @@ class CalendarEventControllerTest {
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.code").value("CALENDAR_MONTHLY_EVENTS_FETCHED"))
                 .andExpect(jsonPath("$.data[0].eventId").value(1))
-                .andExpect(jsonPath("$.data[0].category").value("TOPIK"));
+                .andExpect(jsonPath("$.data[0].category").value("TOPIK_APPLICATION"));
     }
 
     @Test

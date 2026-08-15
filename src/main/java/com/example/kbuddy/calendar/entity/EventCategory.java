@@ -2,7 +2,8 @@ package com.example.kbuddy.calendar.entity;
 
 public enum EventCategory {
     VISA,
-    TOPIK,
+    TOPIK_APPLICATION,
+    TOPIK_EXAM,
     LEGAL,
     ACADEMIC
 }
