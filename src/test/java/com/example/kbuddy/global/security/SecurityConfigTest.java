@@ -3,6 +3,7 @@ package com.example.kbuddy.global.security;
 import com.example.kbuddy.auth.jwt.JwtProperties;
 import com.example.kbuddy.auth.jwt.JwtProvider;
 import com.example.kbuddy.auth.oauth.AuthProvider;
+import com.example.kbuddy.auth.service.OAuth2LoginFailureHandler;
 import com.example.kbuddy.auth.service.OAuth2LoginSuccessHandler;
 import com.example.kbuddy.auth.service.OAuth2UserService;
 import com.example.kbuddy.guide.service.GuideService;
@@ -52,6 +53,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         JwtProvider.class,
         OAuth2UserService.class,
         OAuth2LoginSuccessHandler.class,
+        OAuth2LoginFailureHandler.class,
         SecurityConfigTest.TestKeyConfig.class
 })
 class SecurityConfigTest {

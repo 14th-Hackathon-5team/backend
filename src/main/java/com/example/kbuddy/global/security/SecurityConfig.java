@@ -1,6 +1,7 @@
 package com.example.kbuddy.global.security;
 
 import com.example.kbuddy.auth.jwt.JwtAuthorityConverter;
+import com.example.kbuddy.auth.service.OAuth2LoginFailureHandler;
 import com.example.kbuddy.auth.service.OAuth2LoginSuccessHandler;
 import com.example.kbuddy.auth.service.OAuth2UserService;
 import org.springframework.beans.factory.annotation.Value;
@@ -37,6 +38,7 @@ public class SecurityConfig {
             JwtDecoder jwtDecoder,
             OAuth2UserService oAuth2UserService,
             OAuth2LoginSuccessHandler oAuth2LoginSuccessHandler,
+            OAuth2LoginFailureHandler oAuth2LoginFailureHandler,
             CorsConfigurationSource corsConfigurationSource
     ) throws Exception {
 
@@ -61,7 +63,8 @@ public class SecurityConfig {
                 .oauth2Login(oauth2 -> oauth2
                         .userInfoEndpoint(userInfo ->
                                 userInfo.userService(oAuth2UserService))
-                        .successHandler(oAuth2LoginSuccessHandler))
+                        .successHandler(oAuth2LoginSuccessHandler)
+                        .failureHandler(oAuth2LoginFailureHandler))
                 .oauth2ResourceServer(oauth2 -> oauth2
                         .jwt(jwt -> jwt
                                 .decoder(jwtDecoder)
