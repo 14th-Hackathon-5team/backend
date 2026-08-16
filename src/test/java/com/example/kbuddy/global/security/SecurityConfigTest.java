@@ -2,12 +2,15 @@ package com.example.kbuddy.global.security;
 
 import com.example.kbuddy.auth.jwt.JwtProperties;
 import com.example.kbuddy.auth.jwt.JwtProvider;
+import com.example.kbuddy.ai.service.AiService;
+import com.example.kbuddy.ai.service.AiUserMapper;
 import com.example.kbuddy.auth.oauth.AuthProvider;
 import com.example.kbuddy.auth.service.OAuth2LoginFailureHandler;
 import com.example.kbuddy.auth.service.OAuth2LoginSuccessHandler;
 import com.example.kbuddy.auth.service.OAuth2UserService;
 import com.example.kbuddy.guide.service.GuideService;
 import com.example.kbuddy.calendar.service.CalendarEventService;
+import com.example.kbuddy.notification.service.NotificationService;
 import com.example.kbuddy.user.repository.UserRepository;
 import com.example.kbuddy.user.service.UserService;
 import com.nimbusds.jose.jwk.JWKSet;
@@ -161,6 +164,54 @@ class SecurityConfigTest {
                 .andExpect(status().isUnauthorized());
     }
 
+    @Test
+    void ACCESS_TOKEN으로_GET_notifications에_접근하면_403이_아니다() throws Exception {
+        String accessToken = jwtProvider.issueAccessToken(1L);
+
+        mockMvc.perform(get("/notifications").header("Authorization", "Bearer " + accessToken))
+                .andExpect(result -> assertThat(result.getResponse().getStatus()).isNotEqualTo(403));
+    }
+
+    @Test
+    void SIGNUP_TOKEN으로_GET_notifications에_접근하면_403을_반환한다() throws Exception {
+        String signupToken = jwtProvider.issueSignupToken(
+                AuthProvider.GOOGLE, "109876543210987654321", "test@gmail.com", "홍길동");
+
+        mockMvc.perform(get("/notifications").header("Authorization", "Bearer " + signupToken))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void GET_notifications에_토큰_없이_요청하면_401을_반환한다() throws Exception {
+        mockMvc.perform(get("/notifications"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void ACCESS_TOKEN으로_PATCH_notifications_read에_접근하면_403이_아니다() throws Exception {
+        String accessToken = jwtProvider.issueAccessToken(1L);
+
+        mockMvc.perform(patch("/notifications/1/read").header("Authorization", "Bearer " + accessToken))
+                .andExpect(result -> assertThat(result.getResponse().getStatus()).isNotEqualTo(403));
+    }
+
+    @Test
+    void ACCESS_TOKEN으로_POST_ai_chat에_접근하면_403이_아니다() throws Exception {
+        String accessToken = jwtProvider.issueAccessToken(1L);
+
+        mockMvc.perform(post("/ai/chat").header("Authorization", "Bearer " + accessToken))
+                .andExpect(result -> assertThat(result.getResponse().getStatus()).isNotEqualTo(403));
+    }
+
+    @Test
+    void SIGNUP_TOKEN으로_POST_ai_chat에_접근하면_403을_반환한다() throws Exception {
+        String signupToken = jwtProvider.issueSignupToken(
+                AuthProvider.GOOGLE, "109876543210987654321", "test@gmail.com", "홍길동");
+
+        mockMvc.perform(post("/ai/chat").header("Authorization", "Bearer " + signupToken))
+                .andExpect(status().isForbidden());
+    }
+
     private static final String ALLOWED_ORIGIN = "https://frontend-chi-pied-78.vercel.app";
 
     @Test
@@ -237,6 +288,21 @@ class SecurityConfigTest {
         @Bean
         CalendarEventService calendarEventService() {
             return mock(CalendarEventService.class);
+        }
+
+        @Bean
+        NotificationService notificationService() {
+            return mock(NotificationService.class);
+        }
+
+        @Bean
+        AiService aiService() {
+            return mock(AiService.class);
+        }
+
+        @Bean
+        AiUserMapper aiUserMapper() {
+            return mock(AiUserMapper.class);
         }
 
         @Bean

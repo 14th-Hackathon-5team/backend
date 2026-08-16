@@ -11,7 +11,8 @@ public enum ErrorCode {
     USER_NOT_FOUND(HttpStatus.NOT_FOUND, "USER_NOT_FOUND", "존재하지 않는 사용자입니다."),
     USER_UPDATE_EMPTY(HttpStatus.BAD_REQUEST, "USER_UPDATE_EMPTY", "수정할 정보가 없습니다."),
     GUIDE_NOT_FOUND(HttpStatus.NOT_FOUND, "GUIDE_NOT_FOUND", "존재하지 않는 가이드입니다."),
-    CALENDAR_EVENT_NOT_FOUND(HttpStatus.NOT_FOUND, "CALENDAR_EVENT_NOT_FOUND", "존재하지 않는 일정입니다.");
+    CALENDAR_EVENT_NOT_FOUND(HttpStatus.NOT_FOUND, "CALENDAR_EVENT_NOT_FOUND", "존재하지 않는 일정입니다."),
+    NOTIFICATION_NOT_FOUND(HttpStatus.NOT_FOUND, "NOTIFICATION_NOT_FOUND", "존재하지 않는 알림입니다.");
 
     private final HttpStatus status;
     private final String code;

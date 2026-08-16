@@ -52,3 +52,14 @@ app:
     redirect-uri: http://localhost:3000/oauth/callback
   cors:
     allowed-origin: https://frontend-chi-pied-78.vercel.app
+
+ai:
+  fastapi:
+    base-url: ${AI_FASTAPI_BASE_URL:http://localhost:8000}
+    internal-api-key: ${AI_INTERNAL_API_KEY:}
+    recommendation-timeout: 10s
+    chat-timeout: 20s
+
+scheduler:
+  notification:
+    cron: "0 0 9 * * *"
