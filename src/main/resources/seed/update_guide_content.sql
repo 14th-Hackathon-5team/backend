@@ -1,56 +1,14 @@
--- 배포 초기 공통 데이터 시드 스크립트
+-- 운영 DB에 이미 들어가 있는 7개 가이드의 content를 보강된 버전으로 교체하는 스크립트
 -- Spring Boot가 자동 실행하지 않는 파일입니다. 배포 시 DB에 1회 수동으로 실행해주세요.
--- (재시작마다 자동 실행되면 중복 삽입되므로 data.sql로 두지 않았습니다.)
 --
--- 주의: 이 스크립트는 category 컬럼에 TOPIK_APPLICATION/TOPIK_EXAM 값을 사용합니다.
--- 반드시 alter_category_enum.sql을 먼저 실행해 category ENUM을 변경한 뒤 이 스크립트를 실행하세요.
+-- initial_data.sql은 최초 1회 INSERT용이라 운영 DB에 이미 데이터가 들어간 지금 다시 실행하면
+-- 중복 삽입됩니다. 그래서 이 스크립트는 title로 기존 행을 찾아 UPDATE만 합니다.
+-- UPDATE문이라 여러 번 실행해도 안전합니다(재실행해도 같은 값으로 덮어쓸 뿐 중복되지 않음).
 --
--- TOPIK 일정 출처: topik.go.kr 공식 회차 안내표 (2026.08 기준, 한국 접수/응시 기준)
--- 이미 접수가 마감된 회차는 시험일이 지나지 않은 것만 포함했습니다.
-
--- ============================
--- 캘린더: TOPIK 공통 일정
--- ============================
-
--- 제108회 PBT (접수마감, 시험일만 등록)
-INSERT INTO calendar_events (user_id, title, category, start_date, end_date, is_global, description, related_link)
-VALUES (NULL, 'TOPIK 제108회 PBT 시험일', 'TOPIK_EXAM', '2026-10-18', NULL, true,
-        '제108회 TOPIK PBT 시험일입니다. 성적 발표는 12월 10일 예정입니다.', 'https://www.topik.go.kr');
-
--- 제15회 IBT
-INSERT INTO calendar_events (user_id, title, category, start_date, end_date, is_global, description, related_link)
-VALUES (NULL, 'TOPIK 제15회 IBT 접수기간', 'TOPIK_APPLICATION', '2026-08-18', '2026-08-24', true,
-        '제15회 TOPIK IBT 접수기간입니다.', 'https://www.topik.go.kr');
-INSERT INTO calendar_events (user_id, title, category, start_date, end_date, is_global, description, related_link)
-VALUES (NULL, 'TOPIK 제15회 IBT 시험일', 'TOPIK_EXAM', '2026-10-24', NULL, true,
-        '제15회 TOPIK IBT 시험일입니다. 성적 발표는 11월 13일 예정입니다.', 'https://www.topik.go.kr');
-
--- 제109회 PBT
-INSERT INTO calendar_events (user_id, title, category, start_date, end_date, is_global, description, related_link)
-VALUES (NULL, 'TOPIK 제109회 PBT 접수기간', 'TOPIK_APPLICATION', '2026-09-01', '2026-09-07', true,
-        '제109회 TOPIK PBT 접수기간입니다.', 'https://www.topik.go.kr');
-INSERT INTO calendar_events (user_id, title, category, start_date, end_date, is_global, description, related_link)
-VALUES (NULL, 'TOPIK 제109회 PBT 시험일', 'TOPIK_EXAM', '2026-11-15', NULL, true,
-        '제109회 TOPIK PBT 시험일입니다. 성적 발표는 12월 22일 예정입니다.', 'https://www.topik.go.kr');
-
--- 제16회 IBT
-INSERT INTO calendar_events (user_id, title, category, start_date, end_date, is_global, description, related_link)
-VALUES (NULL, 'TOPIK 제16회 IBT 접수기간', 'TOPIK_APPLICATION', '2026-09-15', '2026-09-21', true,
-        '제16회 TOPIK IBT 접수기간입니다.', 'https://www.topik.go.kr');
-INSERT INTO calendar_events (user_id, title, category, start_date, end_date, is_global, description, related_link)
-VALUES (NULL, 'TOPIK 제16회 IBT 시험일', 'TOPIK_EXAM', '2026-11-28', NULL, true,
-        '제16회 TOPIK IBT 시험일입니다. 성적 발표는 12월 18일 예정입니다.', 'https://www.topik.go.kr');
-
--- ============================
--- 세부정보: 카테고리별 가이드
--- ============================
 -- content는 프론트에서 [SUMMARY]/[IMPORTANT]/[STEP N]/[CAUTION]/[TIP]/[FAQ] 태그 기준으로
--- 섹션을 나눠 렌더링하는 것을 전제로 작성되었습니다 (스키마 변경 없이 텍스트 구조화).
--- STEP N: 첫 줄이 단계 제목, 이후 줄이 설명. TIP/FAQ는 여러 번 반복 가능. FAQ는 Q:/A: 쌍으로 작성.
--- 공식 링크는 reference_url 컬럼에 별도로 저장되어 있어 content 안에는 포함하지 않았습니다.
+-- 섹션을 나눠 렌더링하는 것을 전제로 작성되었습니다.
 
-INSERT INTO guides (category, title, content, reference_url)
-VALUES ('VISA', 'D-2/D-4 비자 안내',
+UPDATE guides SET content =
 '[SUMMARY]
 유학 목적으로 한국에 체류하는 외국인을 위한 D-2(학위과정)와 D-4(일반연수) 비자의 차이와 관리 방법을 안내합니다.
 
@@ -79,11 +37,10 @@ D-2/D-4 비자로는 원칙적으로 학업(또는 연수) 이외의 활동이 �
 Q: D-2와 D-4 비자를 서로 변경할 수 있나요?
 A: 학위과정 입학이 확정되면 D-4에서 D-2로 체류자격을 변경할 수 있습니다. 다만 별도의 체류자격 변경허가 절차가 필요합니다.
 Q: 비자 만료 후에도 한국에 계속 있으면 어떻게 되나요?
-A: 불법체류로 간주되어 출국 명령, 벌금, 향후 입국 제한 등의 불이익을 받을 수 있습니다.',
-        'https://www.hikorea.go.kr');
+A: 불법체류로 간주되어 출국 명령, 벌금, 향후 입국 제한 등의 불이익을 받을 수 있습니다.'
+WHERE category = 'VISA' AND title = 'D-2/D-4 비자 안내';
 
-INSERT INTO guides (category, title, content, reference_url)
-VALUES ('VISA', '외국인등록증 발급 절차',
+UPDATE guides SET content =
 '[SUMMARY]
 90일을 초과하여 한국에 체류하는 외국인이라면 반드시 받아야 하는 외국인등록증(ARC) 발급 절차를 안내합니다.
 
@@ -112,11 +69,10 @@ VALUES ('VISA', '외국인등록증 발급 절차',
 Q: 외국인등록증이 나오기 전에 은행 계좌를 만들 수 있나요?
 A: 은행에 따라 다르지만, 대부분 외국인등록증이 있어야 정식 계좌 개설이 가능합니다. 은행별로 임시 절차가 있는지 미리 문의해보세요.
 Q: 등록 신청 후 얼마나 기다려야 하나요?
-A: 통상 2~3주 정도 소요되며, 신청 지역이나 시기에 따라 달라질 수 있습니다.',
-        'https://www.hikorea.go.kr');
+A: 통상 2~3주 정도 소요되며, 신청 지역이나 시기에 따라 달라질 수 있습니다.'
+WHERE category = 'VISA' AND title = '외국인등록증 발급 절차';
 
-INSERT INTO guides (category, title, content, reference_url)
-VALUES ('TOPIK_APPLICATION', 'TOPIK 접수 방법 안내',
+UPDATE guides SET content =
 '[SUMMARY]
 한국어능력시험(TOPIK) 접수 방법과 접수 시 주의할 점을 안내합니다.
 
@@ -142,11 +98,10 @@ topik.go.kr 계정이 없다면 먼저 회원가입을 진행합니다. 외국�
 Q: PBT와 IBT 중 어떤 걸 선택해야 하나요?
 A: 시험 형태와 접수기간, 성적 발표일이 다르니 본인의 일정에 맞는 쪽을 선택하면 됩니다. 두 시험의 급수 인정 효력은 동일합니다.
 Q: 접수를 놓치면 어떻게 하나요?
-A: 다음 회차를 기다려야 합니다. TOPIK은 연중 여러 차례 시행되니 topik.go.kr에서 전체 일정을 확인해 다음 기회를 놓치지 않도록 하세요.',
-        'https://www.topik.go.kr');
+A: 다음 회차를 기다려야 합니다. TOPIK은 연중 여러 차례 시행되니 topik.go.kr에서 전체 일정을 확인해 다음 기회를 놓치지 않도록 하세요.'
+WHERE category = 'TOPIK_APPLICATION' AND title = 'TOPIK 접수 방법 안내';
 
-INSERT INTO guides (category, title, content, reference_url)
-VALUES ('TOPIK_EXAM', 'TOPIK 시험 당일 안내',
+UPDATE guides SET content =
 '[SUMMARY]
 TOPIK 시험 당일 챙겨야 할 준비물과 유의사항을 안내합니다.
 
@@ -172,11 +127,10 @@ TOPIK 시험 당일 챙겨야 할 준비물과 유의사항을 안내합니다.
 Q: 시험 당일 신분증을 잃어버렸어요, 어떻게 하나요?
 A: 원칙적으로 유효한 신분증이 없으면 응시가 불가능합니다. 분실 시 대체 방법이 있는지 시험 시행처에 즉시 문의하세요.
 Q: 시험 도중 화장실에 갈 수 있나요?
-A: 감독관의 안내에 따라 제한적으로 허용될 수 있으나, 시험 종류와 시간대에 따라 다르므로 사전 안내사항을 확인하세요.',
-        'https://www.topik.go.kr');
+A: 감독관의 안내에 따라 제한적으로 허용될 수 있으나, 시험 종류와 시간대에 따라 다르므로 사전 안내사항을 확인하세요.'
+WHERE category = 'TOPIK_EXAM' AND title = 'TOPIK 시험 당일 안내';
 
-INSERT INTO guides (category, title, content, reference_url)
-VALUES ('LEGAL', '외국인등록 안내',
+UPDATE guides SET content =
 '[SUMMARY]
 90일을 초과해 체류하는 외국인의 법적 등록 의무와 관련 법 조항을 안내합니다.
 
@@ -202,11 +156,10 @@ VALUES ('LEGAL', '외국인등록 안내',
 Q: 90일 이내에 출국했다가 다시 입국하면 등록 의무가 사라지나요?
 A: 아니요, 재입국 후 다시 90일을 초과해 체류할 예정이라면 등록 의무가 새로 발생합니다. 정확한 기준은 하이코리아에 문의하세요.
 Q: 등록을 깜빡했는데 지금이라도 하면 괜찮나요?
-A: 늦었더라도 최대한 빨리 등록하는 것이 좋습니다. 다만 지연에 따른 과태료 등 불이익이 있을 수 있습니다.',
-        'https://www.law.go.kr/LSW/lsLinkCommonInfo.do?chrClsCd=010202&lsJoLnkSeq=1029733341');
+A: 늦었더라도 최대한 빨리 등록하는 것이 좋습니다. 다만 지연에 따른 과태료 등 불이익이 있을 수 있습니다.'
+WHERE category = 'LEGAL' AND title = '외국인등록 안내';
 
-INSERT INTO guides (category, title, content, reference_url)
-VALUES ('LEGAL', '체류지 변경신고 안내',
+UPDATE guides SET content =
 '[SUMMARY]
 이사 등으로 거주지가 바뀐 경우 반드시 해야 하는 체류지 변경신고 절차를 안내합니다.
 
@@ -232,11 +185,10 @@ VALUES ('LEGAL', '체류지 변경신고 안내',
 Q: 기숙사에서 자취방으로 옮긴 경우도 신고 대상인가요?
 A: 네, 학교 기숙사에서 일반 주거지로 이동하는 경우도 체류지 변경에 해당하므로 신고 대상입니다.
 Q: 온라인으로도 신고할 수 있나요?
-A: 하이코리아를 통해 온라인 신고가 가능한 경우가 있으니, 방문 전에 온라인 신고 가능 여부를 먼저 확인해보세요.',
-        'https://www.law.go.kr/lsLinkCommonInfo.do?lsJoLnkSeq=1031822293');
+A: 하이코리아를 통해 온라인 신고가 가능한 경우가 있으니, 방문 전에 온라인 신고 가능 여부를 먼저 확인해보세요.'
+WHERE category = 'LEGAL' AND title = '체류지 변경신고 안내';
 
-INSERT INTO guides (category, title, content, reference_url)
-VALUES ('ACADEMIC', '외국인 특별전형 기본 요건',
+UPDATE guides SET content =
 '[SUMMARY]
 외국인 특별전형으로 한국 대학에 지원하기 위한 기본 자격 요건을 안내합니다.
 
@@ -265,5 +217,5 @@ VALUES ('ACADEMIC', '외국인 특별전형 기본 요건',
 Q: 부모 중 한 명만 외국 국적이어도 지원할 수 있나요?
 A: 대학마다 기준이 다릅니다. 일부 대학은 부모 모두 외국 국적을 요구하고, 일부는 다른 기준을 적용하니 지원하려는 대학의 모집요강을 반드시 확인하세요.
 Q: TOPIK 성적이 없어도 지원할 수 있나요?
-A: 전공이나 대학에 따라 TOPIK 없이도 지원 가능한 경우가 있지만, 입학 후 한국어 수업 이수를 요구하는 경우가 많습니다. 지원 전에 꼭 확인하세요.',
-        'https://www.studyinkorea.go.kr');
+A: 전공이나 대학에 따라 TOPIK 없이도 지원 가능한 경우가 있지만, 입학 후 한국어 수업 이수를 요구하는 경우가 많습니다. 지원 전에 꼭 확인하세요.'
+WHERE category = 'ACADEMIC' AND title = '외국인 특별전형 기본 요건';
