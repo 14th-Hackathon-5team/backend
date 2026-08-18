@@ -3,8 +3,10 @@ package com.example.kbuddy.calendar.service;
 import com.example.kbuddy.calendar.dto.CalendarEventDetailResponse;
 import com.example.kbuddy.calendar.dto.CalendarEventResponse;
 import com.example.kbuddy.calendar.entity.CalendarEvent;
+import com.example.kbuddy.calendar.entity.CalendarEventStatus;
 import com.example.kbuddy.calendar.entity.EventCategory;
 import com.example.kbuddy.calendar.repository.CalendarEventRepository;
+import com.example.kbuddy.calendar.repository.CalendarEventStatusRepository;
 import com.example.kbuddy.global.exception.BusinessException;
 import com.example.kbuddy.global.exception.ErrorCode;
 import com.example.kbuddy.user.entity.User;
@@ -17,7 +19,9 @@ import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 @Service
@@ -32,6 +36,7 @@ public class CalendarEventService {
     private static final String VISA_EXPIRATION_REMINDER_RELATED_LINK = "https://www.hikorea.go.kr";
 
     private final CalendarEventRepository calendarEventRepository;
+    private final CalendarEventStatusRepository calendarEventStatusRepository;
     private final UserRepository userRepository;
 
     @Transactional(readOnly = true)
@@ -66,25 +71,90 @@ public class CalendarEventService {
         return CalendarEventDetailResponse.from(event);
     }
 
-    private List<CalendarEventResponse> getVisibleEvents(User user, LocalDate startDate, LocalDate endDate) {
-        List<CalendarEventResponse> responses = new ArrayList<>(
-                calendarEventRepository.findVisibleEventsBetween(user.getId(), startDate, endDate).stream()
-                        .map(CalendarEventResponse::from)
-                        .toList()
-        );
+    @Transactional
+    public CalendarEventResponse toggleCompleted(Long userId, Long eventId) {
+        User user = findUserById(userId);
+        EventSnapshot snapshot = loadEventSnapshot(user, eventId);
+        CalendarEventStatus status = findOrCreateStatus(user, eventId);
+        status.toggleCompleted();
 
-        buildVisaExpirationReminder(user, startDate, endDate).ifPresent(responses::add);
+        return snapshot.toResponse(eventId, status.getCompleted());
+    }
+
+    @Transactional
+    public void hide(Long userId, Long eventId) {
+        User user = findUserById(userId);
+        loadEventSnapshot(user, eventId);
+        CalendarEventStatus status = findOrCreateStatus(user, eventId);
+        status.hide();
+    }
+
+    @Transactional
+    public void restore(Long userId, Long eventId) {
+        User user = findUserById(userId);
+        CalendarEventStatus status = calendarEventStatusRepository.findByUserIdAndEventId(user.getId(), eventId)
+                .filter(CalendarEventStatus::isHidden)
+                .orElseThrow(() -> new BusinessException(ErrorCode.CALENDAR_EVENT_NOT_FOUND));
+
+        status.restore();
+    }
+
+    @Transactional(readOnly = true)
+    public List<CalendarEventResponse> getHiddenEvents(Long userId) {
+        User user = findUserById(userId);
+        List<CalendarEventStatus> hiddenStatuses = calendarEventStatusRepository
+                .findByUserIdAndHiddenAtIsNotNull(user.getId());
+
+        List<CalendarEventResponse> responses = new ArrayList<>();
+        for (CalendarEventStatus status : hiddenStatuses) {
+            loadEventSnapshotOrNull(user, status.getEventId())
+                    .ifPresent(snapshot -> responses.add(snapshot.toResponse(status.getEventId(), status.getCompleted())));
+        }
+        return responses.stream()
+                .sorted(Comparator.comparing(CalendarEventResponse::startDate))
+                .toList();
+    }
+
+    private List<CalendarEventResponse> getVisibleEvents(User user, LocalDate startDate, LocalDate endDate) {
+        List<CalendarEvent> events = calendarEventRepository.findVisibleEventsBetween(user.getId(), startDate, endDate);
+
+        List<Long> eventIds = new ArrayList<>(events.stream().map(CalendarEvent::getId).toList());
+        buildVisaExpirationReminder(user, startDate, endDate)
+                .ifPresent(reminder -> eventIds.add(VISA_EXPIRATION_REMINDER_EVENT_ID));
+
+        Map<Long, CalendarEventStatus> statusByEventId = loadStatusMap(user.getId(), eventIds);
+
+        List<CalendarEventResponse> responses = new ArrayList<>();
+        for (CalendarEvent event : events) {
+            CalendarEventStatus status = statusByEventId.get(event.getId());
+            if (status != null && status.isHidden()) {
+                continue;
+            }
+            responses.add(CalendarEventResponse.from(event, status != null && status.getCompleted()));
+        }
+
+        buildVisaExpirationReminder(user, startDate, endDate).ifPresent(reminder -> {
+            CalendarEventStatus status = statusByEventId.get(VISA_EXPIRATION_REMINDER_EVENT_ID);
+            if (status != null && status.isHidden()) {
+                return;
+            }
+            responses.add(reminder.toResponse(VISA_EXPIRATION_REMINDER_EVENT_ID, status != null && status.getCompleted()));
+        });
 
         return responses.stream()
                 .sorted(Comparator.comparing(CalendarEventResponse::startDate))
                 .toList();
     }
 
-    private Optional<CalendarEventResponse> buildVisaExpirationReminder(
-            User user,
-            LocalDate startDate,
-            LocalDate endDate
-    ) {
+    private Map<Long, CalendarEventStatus> loadStatusMap(Long userId, List<Long> eventIds) {
+        Map<Long, CalendarEventStatus> statusByEventId = new HashMap<>();
+        for (CalendarEventStatus status : calendarEventStatusRepository.findByUserIdAndEventIdIn(userId, eventIds)) {
+            statusByEventId.put(status.getEventId(), status);
+        }
+        return statusByEventId;
+    }
+
+    private Optional<EventSnapshot> buildVisaExpirationReminder(User user, LocalDate startDate, LocalDate endDate) {
         LocalDate stayExpirationDate = user.getStayExpirationDate();
         if (stayExpirationDate == null) {
             return Optional.empty();
@@ -95,14 +165,7 @@ public class CalendarEventService {
             return Optional.empty();
         }
 
-        return Optional.of(new CalendarEventResponse(
-                VISA_EXPIRATION_REMINDER_EVENT_ID,
-                VISA_EXPIRATION_REMINDER_TITLE,
-                EventCategory.VISA,
-                reminderDate,
-                null,
-                false
-        ));
+        return Optional.of(new EventSnapshot(VISA_EXPIRATION_REMINDER_TITLE, EventCategory.VISA, reminderDate, null, false));
     }
 
     private CalendarEventDetailResponse getVisaExpirationReminderDetail(Long userId) {
@@ -126,6 +189,35 @@ public class CalendarEventService {
         );
     }
 
+    /**
+     * 체크(완료)/숨김 대상 일정을 조회 범위(월별/임박) 제약 없이, ID만으로 조회한다.
+     * 이미 지난 달의 일정이라도 완료 취소/복구를 할 수 있어야 하므로 날짜 범위를 걸지 않는다.
+     */
+    private EventSnapshot loadEventSnapshot(User user, Long eventId) {
+        return loadEventSnapshotOrNull(user, eventId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.CALENDAR_EVENT_NOT_FOUND));
+    }
+
+    private Optional<EventSnapshot> loadEventSnapshotOrNull(User user, Long eventId) {
+        if (VISA_EXPIRATION_REMINDER_EVENT_ID.equals(eventId)) {
+            LocalDate stayExpirationDate = user.getStayExpirationDate();
+            if (stayExpirationDate == null) {
+                return Optional.empty();
+            }
+            LocalDate reminderDate = stayExpirationDate.minusDays(VISA_EXPIRATION_REMINDER_DAYS_BEFORE);
+            return Optional.of(new EventSnapshot(VISA_EXPIRATION_REMINDER_TITLE, EventCategory.VISA, reminderDate, null, false));
+        }
+
+        return calendarEventRepository.findVisibleEventById(user.getId(), eventId)
+                .map(event -> new EventSnapshot(
+                        event.getTitle(), event.getCategory(), event.getStartDate(), event.getEndDate(), event.getIsGlobal()));
+    }
+
+    private CalendarEventStatus findOrCreateStatus(User user, Long eventId) {
+        return calendarEventStatusRepository.findByUserIdAndEventId(user.getId(), eventId)
+                .orElseGet(() -> calendarEventStatusRepository.save(new CalendarEventStatus(user, eventId)));
+    }
+
     private void validateUserExists(Long userId) {
         if (!userRepository.existsById(userId)) {
             throw new BusinessException(ErrorCode.USER_NOT_FOUND);
@@ -135,5 +227,17 @@ public class CalendarEventService {
     private User findUserById(Long userId) {
         return userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+    }
+
+    private record EventSnapshot(
+            String title,
+            EventCategory category,
+            LocalDate startDate,
+            LocalDate endDate,
+            Boolean isGlobal
+    ) {
+        CalendarEventResponse toResponse(Long eventId, boolean completed) {
+            return new CalendarEventResponse(eventId, title, category, startDate, endDate, isGlobal, completed);
+        }
     }
 }
