@@ -3,8 +3,10 @@ package com.example.kbuddy.calendar.service;
 import com.example.kbuddy.calendar.dto.CalendarEventDetailResponse;
 import com.example.kbuddy.calendar.dto.CalendarEventResponse;
 import com.example.kbuddy.calendar.entity.CalendarEvent;
+import com.example.kbuddy.calendar.entity.CalendarEventStatus;
 import com.example.kbuddy.calendar.entity.EventCategory;
 import com.example.kbuddy.calendar.repository.CalendarEventRepository;
+import com.example.kbuddy.calendar.repository.CalendarEventStatusRepository;
 import com.example.kbuddy.global.exception.BusinessException;
 import com.example.kbuddy.global.exception.ErrorCode;
 import com.example.kbuddy.user.entity.User;
@@ -12,6 +14,7 @@ import com.example.kbuddy.user.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -22,6 +25,8 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -33,13 +38,17 @@ class CalendarEventServiceTest {
     private CalendarEventRepository calendarEventRepository;
 
     @Mock
+    private CalendarEventStatusRepository calendarEventStatusRepository;
+
+    @Mock
     private UserRepository userRepository;
 
     private CalendarEventService calendarEventService;
 
     @BeforeEach
     void setUp() {
-        calendarEventService = new CalendarEventService(calendarEventRepository, userRepository);
+        calendarEventService = new CalendarEventService(
+                calendarEventRepository, calendarEventStatusRepository, userRepository);
     }
 
     @Test
@@ -188,6 +197,131 @@ class CalendarEventServiceTest {
         verify(calendarEventRepository).findVisibleEventsBetween(1L, LocalDate.now(), LocalDate.now().plusDays(7));
     }
 
+    @Test
+    void toggleCompleted는_기존_상태가_없으면_새로_만들어_완료로_전환한다() {
+        User user = user(1L, null);
+        CalendarEvent event = event(10L, "TOPIK 접수", EventCategory.TOPIK_APPLICATION,
+                LocalDate.of(2026, 9, 3), LocalDate.of(2026, 9, 9), true);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(calendarEventRepository.findVisibleEventById(1L, 10L)).thenReturn(Optional.of(event));
+        when(calendarEventStatusRepository.findByUserIdAndEventId(1L, 10L)).thenReturn(Optional.empty());
+        when(calendarEventStatusRepository.save(any(CalendarEventStatus.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        CalendarEventResponse response = calendarEventService.toggleCompleted(1L, 10L);
+
+        assertThat(response.eventId()).isEqualTo(10L);
+        assertThat(response.completed()).isTrue();
+    }
+
+    @Test
+    void toggleCompleted는_이미_완료된_상태면_다시_미완료로_전환한다() {
+        User user = user(1L, null);
+        CalendarEvent event = event(10L, "TOPIK 접수", EventCategory.TOPIK_APPLICATION,
+                LocalDate.of(2026, 9, 3), LocalDate.of(2026, 9, 9), true);
+        CalendarEventStatus status = new CalendarEventStatus(user, 10L);
+        status.toggleCompleted();
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(calendarEventRepository.findVisibleEventById(1L, 10L)).thenReturn(Optional.of(event));
+        when(calendarEventStatusRepository.findByUserIdAndEventId(1L, 10L)).thenReturn(Optional.of(status));
+
+        CalendarEventResponse response = calendarEventService.toggleCompleted(1L, 10L);
+
+        assertThat(response.completed()).isFalse();
+    }
+
+    @Test
+    void 존재하지_않는_일정을_완료_토글하면_CALENDAR_EVENT_NOT_FOUND_예외가_발생한다() {
+        User user = user(1L, null);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(calendarEventRepository.findVisibleEventById(1L, 999L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> calendarEventService.toggleCompleted(1L, 999L))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.CALENDAR_EVENT_NOT_FOUND);
+    }
+
+    @Test
+    void hide는_기존_상태가_없으면_새로_만들어_숨김_처리한다() {
+        User user = user(1L, null);
+        CalendarEvent event = event(10L, "TOPIK 접수", EventCategory.TOPIK_APPLICATION,
+                LocalDate.of(2026, 9, 3), LocalDate.of(2026, 9, 9), true);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(calendarEventRepository.findVisibleEventById(1L, 10L)).thenReturn(Optional.of(event));
+        when(calendarEventStatusRepository.findByUserIdAndEventId(1L, 10L)).thenReturn(Optional.empty());
+        when(calendarEventStatusRepository.save(any(CalendarEventStatus.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        calendarEventService.hide(1L, 10L);
+
+        ArgumentCaptor<CalendarEventStatus> captor = ArgumentCaptor.forClass(CalendarEventStatus.class);
+        verify(calendarEventStatusRepository).save(captor.capture());
+        assertThat(captor.getValue().isHidden()).isTrue();
+    }
+
+    @Test
+    void getMonthlyEvents는_숨겨진_일정을_제외한다() {
+        User user = user(1L, null);
+        CalendarEvent event = event(10L, "TOPIK 접수", EventCategory.TOPIK_APPLICATION,
+                LocalDate.of(2026, 9, 3), LocalDate.of(2026, 9, 9), true);
+        CalendarEventStatus hiddenStatus = new CalendarEventStatus(user, 10L);
+        hiddenStatus.hide();
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(calendarEventRepository.findVisibleEventsBetween(
+                1L, YearMonth.of(2026, 9).atDay(1), YearMonth.of(2026, 9).atEndOfMonth()
+        )).thenReturn(List.of(event));
+        when(calendarEventStatusRepository.findByUserIdAndEventIdIn(1L, List.of(10L)))
+                .thenReturn(List.of(hiddenStatus));
+
+        List<CalendarEventResponse> responses = calendarEventService.getMonthlyEvents(1L, 2026, 9);
+
+        assertThat(responses).isEmpty();
+    }
+
+    @Test
+    void restore는_숨김_상태가_아니면_CALENDAR_EVENT_NOT_FOUND_예외가_발생한다() {
+        User user = user(1L, null);
+        CalendarEventStatus status = new CalendarEventStatus(user, 10L);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(calendarEventStatusRepository.findByUserIdAndEventId(1L, 10L)).thenReturn(Optional.of(status));
+
+        assertThatThrownBy(() -> calendarEventService.restore(1L, 10L))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.CALENDAR_EVENT_NOT_FOUND);
+    }
+
+    @Test
+    void restore는_숨긴_일정을_다시_보이게_한다() {
+        User user = user(1L, null);
+        CalendarEventStatus status = new CalendarEventStatus(user, 10L);
+        status.hide();
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(calendarEventStatusRepository.findByUserIdAndEventId(1L, 10L)).thenReturn(Optional.of(status));
+
+        calendarEventService.restore(1L, 10L);
+
+        assertThat(status.isHidden()).isFalse();
+    }
+
+    @Test
+    void getHiddenEvents는_숨긴_일정_목록을_조회한다() {
+        User user = user(1L, null);
+        CalendarEvent event = event(10L, "TOPIK 접수", EventCategory.TOPIK_APPLICATION,
+                LocalDate.of(2026, 9, 3), LocalDate.of(2026, 9, 9), true);
+        CalendarEventStatus hiddenStatus = new CalendarEventStatus(user, 10L);
+        hiddenStatus.hide();
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(calendarEventStatusRepository.findByUserIdAndHiddenAtIsNotNull(1L)).thenReturn(List.of(hiddenStatus));
+        when(calendarEventRepository.findVisibleEventById(1L, 10L)).thenReturn(Optional.of(event));
+
+        List<CalendarEventResponse> responses = calendarEventService.getHiddenEvents(1L);
+
+        assertThat(responses).hasSize(1);
+        assertThat(responses.get(0).eventId()).isEqualTo(10L);
+    }
+
     private CalendarEvent event(
             Long id,
             String title,
@@ -197,19 +331,19 @@ class CalendarEventServiceTest {
             Boolean isGlobal
     ) {
         CalendarEvent event = mock(CalendarEvent.class);
-        when(event.getId()).thenReturn(id);
-        when(event.getTitle()).thenReturn(title);
-        when(event.getCategory()).thenReturn(category);
-        when(event.getStartDate()).thenReturn(startDate);
-        when(event.getEndDate()).thenReturn(endDate);
-        when(event.getIsGlobal()).thenReturn(isGlobal);
+        lenient().when(event.getId()).thenReturn(id);
+        lenient().when(event.getTitle()).thenReturn(title);
+        lenient().when(event.getCategory()).thenReturn(category);
+        lenient().when(event.getStartDate()).thenReturn(startDate);
+        lenient().when(event.getEndDate()).thenReturn(endDate);
+        lenient().when(event.getIsGlobal()).thenReturn(isGlobal);
         return event;
     }
 
     private User user(Long id, LocalDate stayExpirationDate) {
         User user = mock(User.class);
         when(user.getId()).thenReturn(id);
-        when(user.getStayExpirationDate()).thenReturn(stayExpirationDate);
+        lenient().when(user.getStayExpirationDate()).thenReturn(stayExpirationDate);
         return user;
     }
 }

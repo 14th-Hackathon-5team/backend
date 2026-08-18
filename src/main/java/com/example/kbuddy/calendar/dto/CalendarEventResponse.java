@@ -11,17 +11,19 @@ public record CalendarEventResponse(
         EventCategory category,
         LocalDate startDate,
         LocalDate endDate,
-        Boolean isGlobal
+        Boolean isGlobal,
+        Boolean completed
 ) {
 
-    public static CalendarEventResponse from(CalendarEvent event) {
+    public static CalendarEventResponse from(CalendarEvent event, boolean completed) {
         return new CalendarEventResponse(
                 event.getId(),
                 event.getTitle(),
                 event.getCategory(),
                 event.getStartDate(),
                 event.getEndDate(),
-                event.getIsGlobal()
+                event.getIsGlobal(),
+                completed
         );
     }
 }
