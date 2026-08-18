@@ -3,8 +3,10 @@ package com.example.kbuddy.ai.client;
 import com.example.kbuddy.ai.config.AiProperties;
 import com.example.kbuddy.ai.dto.AiChatRequest;
 import com.example.kbuddy.ai.dto.AiChatResponse;
+import com.example.kbuddy.ai.dto.AiRecommendationPriority;
 import com.example.kbuddy.ai.dto.AiRecommendationRequest;
 import com.example.kbuddy.ai.dto.AiRecommendationResponse;
+import com.example.kbuddy.ai.dto.AiRecommendationType;
 import com.example.kbuddy.ai.dto.AiTrigger;
 import com.example.kbuddy.ai.dto.AiUser;
 import com.example.kbuddy.notification.entity.NotificationCategory;
@@ -84,6 +86,8 @@ class AiClientTest {
                 HousingType.DORMITORY,
                 true,
                 PartTimeStatus.NOT_PLANNED,
+                null,
+                false,
                 TopikLevel.LEVEL_3,
                 TopikLevel.LEVEL_5,
                 Language.KOREAN
@@ -94,6 +98,7 @@ class AiClientTest {
         return """
                 {
                   "userId": 1,
+                  "summary": "사용자의 현재 상황 요약",
                   "recommendations": []
                 }
                 """;
@@ -122,6 +127,8 @@ class AiClientTest {
                     "housingType": "DORMITORY",
                     "isParentSupported": true,
                     "partTimeStatus": "NOT_PLANNED",
+                    "partTimeStartDate": null,
+                    "hasPartTimePermit": false,
                     "currentTopikLevel": "LEVEL_3",
                     "targetTopikLevel": "LEVEL_5",
                     "language": "KOREAN"
@@ -133,9 +140,32 @@ class AiClientTest {
                 }
                 """;
 
-        mockServer.expect(requestTo(BASE_URL + "/ai/recommendations"))
+        mockServer.expect(requestTo(BASE_URL + "/recommend"))
                 .andExpect(method(HttpMethod.POST))
                 .andExpect(content().json(expectedJson, JsonCompareMode.STRICT))
+                .andRespond(withSuccess(minimalRecommendationResponseJson(), MediaType.APPLICATION_JSON));
+
+        aiClient.recommendations(request);
+
+        mockServer.verify();
+    }
+
+    @Test
+    void partTimeStatus가_SEARCHING이면_커스텀_변환없이_Java_enum_name_그대로_직렬화된다() {
+        AiClient aiClient = buildAiClientWithMockServer();
+        AiUser userSearchingPartTime = new AiUser(
+                1L, "Vietnam", 2003, UserStatus.UNDERGRADUATE, "성공회대학교",
+                LocalDate.of(2026, 6, 1), VisaType.D2, true, LocalDate.of(2026, 12, 1),
+                HousingType.DORMITORY, true, PartTimeStatus.SEARCHING, null, false,
+                TopikLevel.LEVEL_3, TopikLevel.LEVEL_4, Language.KOREAN
+        );
+        AiRecommendationRequest request = new AiRecommendationRequest(
+                userSearchingPartTime, new AiTrigger("VISA_EXPIRATION", 30));
+
+        mockServer.expect(requestTo(BASE_URL + "/recommend"))
+                .andExpect(content().json("""
+                        {"user": {"partTimeStatus": "SEARCHING", "language": "KOREAN"}}
+                        """, JsonCompareMode.LENIENT))
                 .andRespond(withSuccess(minimalRecommendationResponseJson(), MediaType.APPLICATION_JSON));
 
         aiClient.recommendations(request);
@@ -146,137 +176,131 @@ class AiClientTest {
     // ---------- Recommendation Response 역직렬화 (4, 5, 6, 7, 8, 9) ----------
 
     @Test
-    void 정상_Response는_AiRecommendationResponse로_역직렬화되고_details와_source가_Map으로_변환된다() {
+    void 정상_Response는_AiRecommendationResponse로_역직렬화되고_summary와_detail이_계약대로_매핑된다() {
         AiClient aiClient = buildAiClientWithMockServer();
         String responseJson = """
                 {
                   "userId": 1,
+                  "summary": "사용자의 현재 상황 요약",
                   "recommendations": [
                     {
-                      "category": "VISA",
-                      "title": "D-2 비자 안내",
-                      "priority": 5,
-                      "reason": "현재 비자가 D-2입니다.",
-                      "summary": "사용자에게 표시할 핵심 안내 내용",
-                      "details": {},
-                      "source": {
-                        "dataset": "law",
-                        "title": "유학생 비자 종류(D-2)",
-                        "sourceName": "국가법령정보센터",
-                        "article": "관련 조항"
+                      "type": "LAW",
+                      "priority": "HIGH",
+                      "title": "체류기간 연장 신청을 확인하세요",
+                      "reason": "체류기간 만료일이 가까워지고 있습니다.",
+                      "detail": {
+                        "category": "VISA",
+                        "lawName": "출입국관리법",
+                        "sourceName": "국가법령정보센터"
                       }
                     }
                   ]
                 }
                 """;
-        mockServer.expect(requestTo(BASE_URL + "/ai/recommendations"))
+        mockServer.expect(requestTo(BASE_URL + "/recommend"))
                 .andRespond(withSuccess(responseJson, MediaType.APPLICATION_JSON));
 
         AiRecommendationResponse response = aiClient.recommendations(
                 new AiRecommendationRequest(sampleUser(), new AiTrigger("VISA_EXPIRATION", 30)));
 
         assertThat(response.userId()).isEqualTo(1L);
+        assertThat(response.summary()).isEqualTo("사용자의 현재 상황 요약");
         assertThat(response.recommendations()).hasSize(1);
         var recommendation = response.recommendations().get(0);
-        assertThat(recommendation.category()).isEqualTo(NotificationCategory.VISA);
-        assertThat(recommendation.title()).isEqualTo("D-2 비자 안내");
-        assertThat(recommendation.priority()).isEqualTo(5);
-        assertThat(recommendation.reason()).isEqualTo("현재 비자가 D-2입니다.");
-        assertThat(recommendation.details()).isEqualTo(Map.of());
-        assertThat(recommendation.source())
-                .containsEntry("dataset", "law")
+        assertThat(recommendation.type()).isEqualTo(AiRecommendationType.LAW);
+        assertThat(recommendation.priority()).isEqualTo(AiRecommendationPriority.HIGH);
+        assertThat(recommendation.title()).isEqualTo("체류기간 연장 신청을 확인하세요");
+        assertThat(recommendation.reason()).isEqualTo("체류기간 만료일이 가까워지고 있습니다.");
+        assertThat(recommendation.detail())
+                .containsEntry("category", "VISA")
+                .containsEntry("lawName", "출입국관리법")
                 .containsEntry("sourceName", "국가법령정보센터");
     }
 
     @Test
-    void recommendations_배열에_여러_항목이_있으면_모두_역직렬화되고_priority_1부터_5까지_정상_처리된다() {
+    void recommendations_배열에_여러_항목이_있으면_모두_역직렬화되고_HIGH_MEDIUM_LOW가_정상_처리된다() {
         AiClient aiClient = buildAiClientWithMockServer();
         String responseJson = """
                 {
                   "userId": 1,
+                  "summary": "요약",
                   "recommendations": [
                     {
-                      "category": "VISA",
-                      "title": "비자 안내",
-                      "priority": 5,
+                      "type": "LAW",
+                      "priority": "HIGH",
+                      "title": "법령 안내",
                       "reason": "이유1",
-                      "summary": "요약1",
-                      "details": {"key": "value1"},
-                      "source": null
+                      "detail": {"key": "value1"}
                     },
                     {
-                      "category": "PART_TIME",
-                      "title": "아르바이트 안내",
-                      "priority": 1,
+                      "type": "UNIVERSITY",
+                      "priority": "LOW",
+                      "title": "대학 안내",
                       "reason": "이유2",
-                      "summary": "요약2",
-                      "details": {"key": "value2"},
-                      "source": null
+                      "detail": {"key": "value2"}
                     }
                   ]
                 }
                 """;
-        mockServer.expect(requestTo(BASE_URL + "/ai/recommendations"))
+        mockServer.expect(requestTo(BASE_URL + "/recommend"))
                 .andRespond(withSuccess(responseJson, MediaType.APPLICATION_JSON));
 
         AiRecommendationResponse response = aiClient.recommendations(
                 new AiRecommendationRequest(sampleUser(), new AiTrigger("VISA_EXPIRATION", 30)));
 
         assertThat(response.recommendations()).hasSize(2);
-        assertThat(response.recommendations().get(0).priority()).isEqualTo(5);
-        assertThat(response.recommendations().get(0).category()).isEqualTo(NotificationCategory.VISA);
-        assertThat(response.recommendations().get(1).priority()).isEqualTo(1);
-        assertThat(response.recommendations().get(1).category()).isEqualTo(NotificationCategory.PART_TIME);
+        assertThat(response.recommendations().get(0).priority()).isEqualTo(AiRecommendationPriority.HIGH);
+        assertThat(response.recommendations().get(0).type()).isEqualTo(AiRecommendationType.LAW);
+        assertThat(response.recommendations().get(1).priority()).isEqualTo(AiRecommendationPriority.LOW);
+        assertThat(response.recommendations().get(1).type()).isEqualTo(AiRecommendationType.UNIVERSITY);
     }
 
     @Test
-    void source가_null이면_AiRecommendation_source도_null로_역직렬화된다() {
+    void detail이_빈_객체면_빈_Map으로_역직렬화된다() {
         AiClient aiClient = buildAiClientWithMockServer();
         String responseJson = """
                 {
                   "userId": 1,
+                  "summary": "요약",
                   "recommendations": [
                     {
-                      "category": "LEGAL",
+                      "type": "UNIVERSITY",
+                      "priority": "MEDIUM",
                       "title": "제목",
-                      "priority": 3,
                       "reason": "이유",
-                      "summary": "요약",
-                      "details": {},
-                      "source": null
+                      "detail": {}
                     }
                   ]
                 }
                 """;
-        mockServer.expect(requestTo(BASE_URL + "/ai/recommendations"))
+        mockServer.expect(requestTo(BASE_URL + "/recommend"))
                 .andRespond(withSuccess(responseJson, MediaType.APPLICATION_JSON));
 
         AiRecommendationResponse response = aiClient.recommendations(
                 new AiRecommendationRequest(sampleUser(), new AiTrigger("VISA_EXPIRATION", 30)));
 
-        assertThat(response.recommendations().get(0).source()).isNull();
+        assertThat(response.recommendations().get(0).detail()).isEqualTo(Map.of());
     }
 
     @Test
-    void 허용되지_않은_category값이_오면_역직렬화에_실패하고_AiClientException_RESPONSE_INVALID가_발생한다() {
+    void 허용되지_않은_type값이_오면_역직렬화에_실패하고_AiClientException_RESPONSE_INVALID가_발생한다() {
         AiClient aiClient = buildAiClientWithMockServer();
         String responseJson = """
                 {
                   "userId": 1,
+                  "summary": "요약",
                   "recommendations": [
                     {
-                      "category": "UNKNOWN_CATEGORY",
+                      "type": "UNKNOWN_TYPE",
+                      "priority": "MEDIUM",
                       "title": "제목",
-                      "priority": 3,
                       "reason": "이유",
-                      "summary": "요약",
-                      "details": {},
-                      "source": null
+                      "detail": {}
                     }
                   ]
                 }
                 """;
-        mockServer.expect(requestTo(BASE_URL + "/ai/recommendations"))
+        mockServer.expect(requestTo(BASE_URL + "/recommend"))
                 .andRespond(withSuccess(responseJson, MediaType.APPLICATION_JSON));
 
         assertThatThrownBy(() -> aiClient.recommendations(
@@ -308,6 +332,8 @@ class AiClientTest {
                     "housingType": "DORMITORY",
                     "isParentSupported": true,
                     "partTimeStatus": "NOT_PLANNED",
+                    "partTimeStartDate": null,
+                    "hasPartTimePermit": false,
                     "currentTopikLevel": "LEVEL_3",
                     "targetTopikLevel": "LEVEL_5",
                     "language": "KOREAN"
@@ -385,7 +411,7 @@ class AiClientTest {
     void 모든_요청에_Content_Type과_X_Internal_API_Key_헤더가_전달된다() {
         AiClient aiClient = buildAiClientWithMockServer();
 
-        mockServer.expect(requestTo(BASE_URL + "/ai/recommendations"))
+        mockServer.expect(requestTo(BASE_URL + "/recommend"))
                 .andExpect(content().contentType(MediaType.APPLICATION_JSON))
                 .andExpect(header("X-Internal-API-Key", API_KEY))
                 .andRespond(withSuccess(minimalRecommendationResponseJson(), MediaType.APPLICATION_JSON));
@@ -401,9 +427,9 @@ class AiClientTest {
     void 서버오류_5xx_응답이면_한_번_재시도하고_두번째_요청이_성공하면_정상_응답을_반환한다() {
         AiClient aiClient = buildAiClientWithMockServer();
 
-        mockServer.expect(requestTo(BASE_URL + "/ai/recommendations"))
+        mockServer.expect(requestTo(BASE_URL + "/recommend"))
                 .andRespond(withServerError());
-        mockServer.expect(requestTo(BASE_URL + "/ai/recommendations"))
+        mockServer.expect(requestTo(BASE_URL + "/recommend"))
                 .andRespond(withSuccess(minimalRecommendationResponseJson(), MediaType.APPLICATION_JSON));
 
         AiRecommendationResponse response = aiClient.recommendations(
@@ -417,9 +443,9 @@ class AiClientTest {
     void 서버오류_5xx가_재시도_이후에도_계속되면_AiClientException_SERVER_UNAVAILABLE이_발생하고_요청은_정확히_2번만_일어난다() {
         AiClient aiClient = buildAiClientWithMockServer();
 
-        mockServer.expect(requestTo(BASE_URL + "/ai/recommendations"))
+        mockServer.expect(requestTo(BASE_URL + "/recommend"))
                 .andRespond(withServerError());
-        mockServer.expect(requestTo(BASE_URL + "/ai/recommendations"))
+        mockServer.expect(requestTo(BASE_URL + "/recommend"))
                 .andRespond(withServerError());
 
         assertThatThrownBy(() -> aiClient.recommendations(
@@ -437,7 +463,7 @@ class AiClientTest {
     void 클라이언트오류_4xx_응답이면_재시도하지_않고_HttpClientErrorException을_그대로_던진다() {
         AiClient aiClient = buildAiClientWithMockServer();
 
-        mockServer.expect(requestTo(BASE_URL + "/ai/recommendations"))
+        mockServer.expect(requestTo(BASE_URL + "/recommend"))
                 .andRespond(withStatus(HttpStatus.valueOf(422))
                         .body("{\"detail\": \"invalid request\"}")
                         .contentType(MediaType.APPLICATION_JSON));

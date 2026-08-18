@@ -22,7 +22,7 @@ import java.util.function.Supplier;
 @Component
 public class AiClient {
 
-    private static final String RECOMMENDATIONS_PATH = "/ai/recommendations";
+    private static final String RECOMMENDATIONS_PATH = "/recommend";
     private static final String CHAT_PATH = "/ai/chat";
     private static final String API_KEY_HEADER = "X-Internal-API-Key";
 

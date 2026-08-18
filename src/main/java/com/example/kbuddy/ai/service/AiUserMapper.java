@@ -29,6 +29,8 @@ public class AiUserMapper {
                 user.housingType(),
                 user.isParentSupported(),
                 user.partTimeStatus(),
+                null, // partTimeStartDate: User Entity/UserResponse에 아직 없는 필드라 매핑할 데이터가 없음
+                null, // hasPartTimePermit: User Entity/UserResponse에 아직 없는 필드라 매핑할 데이터가 없음
                 user.currentTopikLevel(),
                 user.targetTopikLevel(),
                 user.language()

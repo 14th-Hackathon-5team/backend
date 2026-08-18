@@ -22,6 +22,8 @@ public record AiUser(
         HousingType housingType,
         Boolean isParentSupported,
         PartTimeStatus partTimeStatus,
+        LocalDate partTimeStartDate,
+        Boolean hasPartTimePermit,
         TopikLevel currentTopikLevel,
         TopikLevel targetTopikLevel,
         Language language

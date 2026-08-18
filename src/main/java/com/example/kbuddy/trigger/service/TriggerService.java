@@ -2,11 +2,13 @@ package com.example.kbuddy.trigger.service;
 
 import com.example.kbuddy.ai.client.AiClientException;
 import com.example.kbuddy.ai.dto.AiRecommendation;
+import com.example.kbuddy.ai.dto.AiRecommendationPriority;
 import com.example.kbuddy.ai.dto.AiRecommendationRequest;
 import com.example.kbuddy.ai.dto.AiRecommendationResponse;
 import com.example.kbuddy.ai.dto.AiTrigger;
 import com.example.kbuddy.ai.dto.AiUser;
 import com.example.kbuddy.ai.service.AiService;
+import com.example.kbuddy.notification.entity.NotificationCategory;
 import com.example.kbuddy.notification.entity.NotificationTriggerType;
 import com.example.kbuddy.notification.repository.NotificationRepository;
 import com.example.kbuddy.notification.service.NotificationService;
@@ -99,13 +101,13 @@ public class TriggerService {
 
         notificationService.create(
                 user,
-                selected.category(),
+                extractCategory(selected),
                 selected.title(),
                 selected.reason(),
-                selected.summary(),
-                selected.details(),
-                selected.source(),
-                selected.priority(),
+                response.summary(),
+                selected.detail(),
+                null,
+                toPriorityScore(selected.priority()),
                 triggerType,
                 triggerDate
         );
@@ -113,7 +115,7 @@ public class TriggerService {
 
     /**
      * priority가 가장 높은 Recommendation 하나만 선택한다(MVP 정책).
-     * priority가 없거나 1~5 범위를 벗어난 Recommendation은 후보에서 제외한다.
+     * priority가 없는 Recommendation은 후보에서 제외한다.
      * 동일 priority면 응답 배열에서 먼저 나온 항목을 우선한다(결정론적 선택).
      */
     private AiRecommendation selectRecommendation(AiRecommendationResponse response) {
@@ -126,7 +128,7 @@ public class TriggerService {
             if (!isValidPriority(candidate)) {
                 continue;
             }
-            if (best == null || candidate.priority() > best.priority()) {
+            if (best == null || toPriorityScore(candidate.priority()) > toPriorityScore(best.priority())) {
                 best = candidate;
             }
         }
@@ -134,18 +136,44 @@ public class TriggerService {
     }
 
     private boolean isValidPriority(AiRecommendation candidate) {
-        return candidate != null
-                && candidate.priority() != null
-                && candidate.priority() >= 1
-                && candidate.priority() <= 5;
+        return candidate != null && candidate.priority() != null;
     }
 
-    private boolean isAllowedByAlarmSetting(AlarmSetting alarmSetting, int priority) {
+    private boolean isAllowedByAlarmSetting(AlarmSetting alarmSetting, AiRecommendationPriority priority) {
         return switch (alarmSetting) {
             case ALL -> true;
-            case ESSENTIAL_ONLY -> priority == 5;
+            case ESSENTIAL_ONLY -> priority == AiRecommendationPriority.HIGH;
             case NONE -> false;
         };
+    }
+
+    /**
+     * FastAPI 계약의 priority(HIGH/MEDIUM/LOW)를 Notification 엔티티가 요구하는 1~5 정수 척도로 변환한다.
+     * Notification 엔티티/DB 스키마는 이번 작업 범위에서 변경하지 않으므로, 기존 척도(ESSENTIAL_ONLY는
+     * 5만 허용)와 호환되도록 HIGH=5, MEDIUM=3, LOW=1로 고정 매핑한다. Notification/NotificationService
+     * 전체를 확인한 결과 1~5 범위 검증 외에 특정 정수값에 의존하는 다른 로직은 없어 이 매핑을 그대로 유지한다.
+     */
+    private int toPriorityScore(AiRecommendationPriority priority) {
+        return switch (priority) {
+            case HIGH -> 5;
+            case MEDIUM -> 3;
+            case LOW -> 1;
+        };
+    }
+
+    /**
+     * FastAPI 계약상 AI가 Backend {@link NotificationCategory} enum 값 자체를
+     * recommendation.detail().get("category")로 반환하므로, type(LAW/UNIVERSITY) 기반 매핑 없이
+     * Enum.valueOf로 그대로 변환한다. category가 없거나 알 수 없는 값이면 임의의 기본값으로 조용히
+     * fallback하지 않고 예외를 던진다 - {@link com.example.kbuddy.scheduler.NotificationScheduler}가
+     * User 단위로 이미 감싸고 있는 예외 처리로 흡수되어 다른 User 처리에는 영향을 주지 않는다.
+     */
+    private NotificationCategory extractCategory(AiRecommendation recommendation) {
+        Object categoryValue = recommendation.detail() == null ? null : recommendation.detail().get("category");
+        if (!(categoryValue instanceof String categoryName)) {
+            throw new IllegalStateException("AI Recommendation의 detail.category가 없습니다: " + recommendation);
+        }
+        return NotificationCategory.valueOf(categoryName);
     }
 
     boolean isAlienRegistrationCandidate(User user, LocalDate today) {
@@ -192,6 +220,8 @@ public class TriggerService {
                 user.getHousingType(),
                 user.getIsParentSupported(),
                 user.getPartTimeStatus(),
+                null, // partTimeStartDate: User Entity에 아직 없는 필드라 매핑할 데이터가 없음
+                null, // hasPartTimePermit: User Entity에 아직 없는 필드라 매핑할 데이터가 없음
                 user.getCurrentTopikLevel(),
                 user.getTargetTopikLevel(),
                 user.getLanguage()

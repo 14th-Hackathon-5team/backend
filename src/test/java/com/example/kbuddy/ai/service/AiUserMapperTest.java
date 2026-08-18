@@ -54,6 +54,9 @@ class AiUserMapperTest {
         assertThat(aiUser.housingType()).isEqualTo(HousingType.DORMITORY);
         assertThat(aiUser.isParentSupported()).isTrue();
         assertThat(aiUser.partTimeStatus()).isEqualTo(PartTimeStatus.NOT_PLANNED);
+        // User Entity/UserResponse에 아직 없는 필드라 매핑 데이터가 없으므로 항상 null이어야 한다.
+        assertThat(aiUser.partTimeStartDate()).isNull();
+        assertThat(aiUser.hasPartTimePermit()).isNull();
         assertThat(aiUser.currentTopikLevel()).isEqualTo(TopikLevel.LEVEL_3);
         assertThat(aiUser.targetTopikLevel()).isEqualTo(TopikLevel.LEVEL_5);
         assertThat(aiUser.language()).isEqualTo(Language.KOREAN);

@@ -54,6 +54,8 @@ class AiServiceTest {
                 HousingType.DORMITORY,
                 true,
                 PartTimeStatus.NOT_PLANNED,
+                null,
+                false,
                 TopikLevel.LEVEL_3,
                 TopikLevel.LEVEL_5,
                 Language.KOREAN
@@ -63,7 +65,7 @@ class AiServiceTest {
     @Test
     void recommendations를_호출하면_AiClient의_recommendations에_그대로_위임한다() {
         AiRecommendationRequest request = new AiRecommendationRequest(sampleUser(), new AiTrigger("VISA_EXPIRATION", 30));
-        AiRecommendationResponse expected = new AiRecommendationResponse(1L, List.of());
+        AiRecommendationResponse expected = new AiRecommendationResponse(1L, "요약", List.of());
         when(aiClient.recommendations(request)).thenReturn(expected);
 
         AiRecommendationResponse result = aiService.recommendations(request);
