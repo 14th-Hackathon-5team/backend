@@ -10,6 +10,7 @@ import com.example.kbuddy.ai.service.AiUserMapper;
 import com.example.kbuddy.global.response.ApiResponse;
 import com.example.kbuddy.user.dto.UserResponse;
 import com.example.kbuddy.user.service.UserService;
+import io.swagger.v3.oas.annotations.Hidden;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -60,6 +61,7 @@ public class AiController {
             )
     })
     @SecurityRequirement(name = "bearerAuth")
+    @Hidden
     @PostMapping("/ai/chat")
     public ResponseEntity<ApiResponse<AiChatApiResponse>> chat(
             @AuthenticationPrincipal Jwt jwt,

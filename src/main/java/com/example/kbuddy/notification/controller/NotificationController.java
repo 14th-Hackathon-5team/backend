@@ -18,7 +18,11 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
-@Tag(name = "알림", description = "AI 맞춤 알림을 조회하고 읽음 처리하는 API")
+@Tag(
+        name = "AI 맞춤 알림",
+        description = "사용자의 비자·체류·학업 데이터를 기반으로 AI가 추출한 법·행정 및 대입 정보를 알림 형태로 제공하는 API. "
+                + "현재 생성되는 모든 알림은 AI 추천 결과입니다."
+)
 @RestController
 @RequiredArgsConstructor
 public class NotificationController {
@@ -27,7 +31,10 @@ public class NotificationController {
 
     @Operation(
             summary = "내 알림 목록 조회",
-            description = "현재 로그인한 사용자의 알림 목록을 최신순(createdAt DESC)으로 조회합니다."
+            description = "현재 로그인한 사용자의 알림 목록을 최신순(createdAt DESC)으로 조회합니다. "
+                    + "각 알림은 Backend가 사용자 데이터 변화(트리거)를 감지하면 내부적으로 FastAPI 추천(AI Recommendation) API를 호출하고, "
+                    + "그 결과 중 priority가 가장 높은 추천 1건을 선정해 미리 생성해 둔 것입니다. "
+                    + "Frontend가 AI를 직접 호출하지 않으며, 이 API로 이미 생성된 추천 결과만 조회합니다."
     )
     @ApiResponses({
             @io.swagger.v3.oas.annotations.responses.ApiResponse(
@@ -53,7 +60,7 @@ public class NotificationController {
 
     @Operation(
             summary = "알림 읽음 처리",
-            description = "현재 로그인한 사용자 소유의 알림을 읽음 처리합니다. 다른 사용자의 알림이거나 존재하지 않는 알림은 "
+            description = "현재 로그인한 사용자 소유의 AI 맞춤 알림을 읽음 처리합니다. 다른 사용자의 알림이거나 존재하지 않는 알림은 "
                     + "동일하게 NOTIFICATION_NOT_FOUND로 처리됩니다. 이미 읽은 알림을 다시 요청해도 성공하며 기존 읽은 시각이 유지됩니다."
     )
     @ApiResponses({
