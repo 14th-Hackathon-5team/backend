@@ -9,6 +9,10 @@ import com.example.kbuddy.ai.dto.AiRecommendationType;
 import com.example.kbuddy.ai.dto.AiUser;
 import com.example.kbuddy.ai.service.AiService;
 import com.example.kbuddy.auth.oauth.AuthProvider;
+import com.example.kbuddy.calendar.entity.CalendarEvent;
+import com.example.kbuddy.calendar.entity.EventCategory;
+import com.example.kbuddy.calendar.repository.CalendarEventRepository;
+import com.example.kbuddy.calendar.service.CalendarEventService;
 import com.example.kbuddy.notification.entity.Notification;
 import com.example.kbuddy.notification.entity.NotificationCategory;
 import com.example.kbuddy.notification.entity.NotificationTriggerType;
@@ -65,12 +69,19 @@ class TriggerServiceTest {
     @Mock
     private AiService aiService;
 
+    @Mock
+    private CalendarEventRepository calendarEventRepository;
+
+    @Mock
+    private CalendarEventService calendarEventService;
+
     private TriggerService triggerService;
 
     @BeforeEach
     void setUp() {
         triggerService = new TriggerService(
-                notificationRepository, notificationService, emailNotificationService, aiService, FIXED_CLOCK);
+                notificationRepository, notificationService, emailNotificationService, aiService,
+                calendarEventRepository, calendarEventService, FIXED_CLOCK);
     }
 
     /**
@@ -118,6 +129,18 @@ class TriggerServiceTest {
         } catch (ReflectiveOperationException e) {
             throw new IllegalStateException(e);
         }
+    }
+
+    private CalendarEvent topikEvent(Long id, EventCategory category, LocalDate startDate, LocalDate endDate) {
+        CalendarEvent event = new CalendarEvent(null, "TOPIK 일정", category, startDate, endDate, true, "설명", "https://www.topik.go.kr");
+        try {
+            var field = CalendarEvent.class.getDeclaredField("id");
+            field.setAccessible(true);
+            field.set(event, id);
+        } catch (ReflectiveOperationException e) {
+            throw new IllegalStateException(e);
+        }
+        return event;
     }
 
     private AiRecommendation recommendation(AiRecommendationType type, String title, AiRecommendationPriority priority, String category) {
@@ -451,5 +474,100 @@ class TriggerServiceTest {
         triggerService.processUser(user);
 
         verifyNoInteractions(emailNotificationService);
+    }
+
+    // ---------- 체류만료 D-1 재알림 + 완료체크 skip ----------
+
+    @Test
+    void 체류만료가_D_1이고_캘린더에서_이미_완료체크했으면_AI를_호출하지_않고_Notification도_생성하지_않는다() {
+        User user = neutralUser(TODAY.minusYears(1), true, TODAY.plusDays(1), VisaType.OTHER, PartTimeStatus.NOT_PLANNED, AlarmSetting.ALL);
+        when(calendarEventService.isCompletedByUser(1L, CalendarEventService.VISA_EXPIRATION_REMINDER_EVENT_ID)).thenReturn(true);
+
+        triggerService.processUser(user);
+
+        verifyNoInteractions(aiService);
+        verify(notificationService, never()).create(any(), any(), any(), any(), any(), any(), any(), any(), eq(NotificationTriggerType.VISA_EXPIRATION), any());
+    }
+
+    @Test
+    void 체류만료가_D_1이고_아직_완료체크_안했으면_평소처럼_AI를_호출한다() {
+        User user = neutralUser(TODAY.minusYears(1), true, TODAY.plusDays(1), VisaType.OTHER, PartTimeStatus.NOT_PLANNED, AlarmSetting.ALL);
+        when(calendarEventService.isCompletedByUser(1L, CalendarEventService.VISA_EXPIRATION_REMINDER_EVENT_ID)).thenReturn(false);
+        when(notificationRepository.existsByUserAndTriggerTypeAndTriggerDate(any(), any(), any())).thenReturn(false);
+        when(aiService.recommendations(any())).thenReturn(new AiRecommendationResponse(1L, "요약", java.util.List.of()));
+
+        triggerService.processUser(user);
+
+        verify(aiService).recommendations(any(AiRecommendationRequest.class));
+    }
+
+    // ---------- TOPIK 접수/시험일 알림 ----------
+
+    @Test
+    void TOPIK_EXAM이_D_7이면_AI_호출_없이_고정_문구로_Notification을_생성하고_이메일을_발송한다() {
+        User user = neutralUser(TODAY.minusYears(1), true, TODAY.plusYears(1), VisaType.OTHER, PartTimeStatus.NOT_PLANNED, AlarmSetting.ALL);
+        CalendarEvent exam = topikEvent(100L, EventCategory.TOPIK_EXAM, TODAY.plusDays(7), null);
+        when(calendarEventRepository.findByIsGlobalTrueAndCategory(EventCategory.TOPIK_APPLICATION)).thenReturn(java.util.List.of());
+        when(calendarEventRepository.findByIsGlobalTrueAndCategory(EventCategory.TOPIK_EXAM)).thenReturn(java.util.List.of(exam));
+        when(notificationRepository.existsByUserAndTriggerTypeAndTriggerDate(user, NotificationTriggerType.TOPIK_EXAM, TODAY)).thenReturn(false);
+        Notification saved = org.mockito.Mockito.mock(Notification.class);
+        when(notificationService.create(eq(user), eq(NotificationCategory.TOPIK), any(), any(), any(), any(), any(), eq(3), eq(NotificationTriggerType.TOPIK_EXAM), eq(TODAY)))
+                .thenReturn(saved);
+
+        triggerService.processUser(user);
+
+        verifyNoInteractions(aiService);
+        verify(emailNotificationService).send(user, saved);
+    }
+
+    @Test
+    void TOPIK_APPLICATION이_D_1이고_완료체크_안했으면_Notification을_생성한다() {
+        User user = neutralUser(TODAY.minusYears(1), true, TODAY.plusYears(1), VisaType.OTHER, PartTimeStatus.NOT_PLANNED, AlarmSetting.ALL);
+        CalendarEvent application = topikEvent(200L, EventCategory.TOPIK_APPLICATION, TODAY.minusDays(3), TODAY.plusDays(1));
+        when(calendarEventRepository.findByIsGlobalTrueAndCategory(EventCategory.TOPIK_APPLICATION)).thenReturn(java.util.List.of(application));
+        when(calendarEventRepository.findByIsGlobalTrueAndCategory(EventCategory.TOPIK_EXAM)).thenReturn(java.util.List.of());
+        when(calendarEventService.isCompletedByUser(1L, 200L)).thenReturn(false);
+        when(notificationRepository.existsByUserAndTriggerTypeAndTriggerDate(user, NotificationTriggerType.TOPIK_APPLICATION, TODAY)).thenReturn(false);
+
+        triggerService.processUser(user);
+
+        verify(notificationService).create(eq(user), eq(NotificationCategory.TOPIK), any(), any(), any(), any(), any(), eq(5), eq(NotificationTriggerType.TOPIK_APPLICATION), eq(TODAY));
+    }
+
+    @Test
+    void TOPIK_APPLICATION이_D_1이고_이미_완료체크했으면_Notification을_생성하지_않는다() {
+        User user = neutralUser(TODAY.minusYears(1), true, TODAY.plusYears(1), VisaType.OTHER, PartTimeStatus.NOT_PLANNED, AlarmSetting.ALL);
+        CalendarEvent application = topikEvent(200L, EventCategory.TOPIK_APPLICATION, TODAY.minusDays(3), TODAY.plusDays(1));
+        when(calendarEventRepository.findByIsGlobalTrueAndCategory(EventCategory.TOPIK_APPLICATION)).thenReturn(java.util.List.of(application));
+        when(calendarEventRepository.findByIsGlobalTrueAndCategory(EventCategory.TOPIK_EXAM)).thenReturn(java.util.List.of());
+        when(calendarEventService.isCompletedByUser(1L, 200L)).thenReturn(true);
+
+        triggerService.processUser(user);
+
+        verify(notificationService, never()).create(any(), any(), any(), any(), any(), any(), any(), any(), eq(NotificationTriggerType.TOPIK_APPLICATION), any());
+    }
+
+    @Test
+    void TOPIK_이벤트의_임박_기준이_아니면_Notification을_생성하지_않는다() {
+        User user = neutralUser(TODAY.minusYears(1), true, TODAY.plusYears(1), VisaType.OTHER, PartTimeStatus.NOT_PLANNED, AlarmSetting.ALL);
+        CalendarEvent exam = topikEvent(100L, EventCategory.TOPIK_EXAM, TODAY.plusDays(15), null);
+        when(calendarEventRepository.findByIsGlobalTrueAndCategory(EventCategory.TOPIK_APPLICATION)).thenReturn(java.util.List.of());
+        when(calendarEventRepository.findByIsGlobalTrueAndCategory(EventCategory.TOPIK_EXAM)).thenReturn(java.util.List.of(exam));
+
+        triggerService.processUser(user);
+
+        verify(notificationService, never()).create(any(), any(), any(), any(), any(), any(), any(), any(), eq(NotificationTriggerType.TOPIK_EXAM), any());
+    }
+
+    @Test
+    void ESSENTIAL_ONLY_유저는_TOPIK_D_7_임박_알림을_받지_않는다() {
+        User user = neutralUser(TODAY.minusYears(1), true, TODAY.plusYears(1), VisaType.OTHER, PartTimeStatus.NOT_PLANNED, AlarmSetting.ESSENTIAL_ONLY);
+        CalendarEvent exam = topikEvent(100L, EventCategory.TOPIK_EXAM, TODAY.plusDays(7), null);
+        when(calendarEventRepository.findByIsGlobalTrueAndCategory(EventCategory.TOPIK_APPLICATION)).thenReturn(java.util.List.of());
+        when(calendarEventRepository.findByIsGlobalTrueAndCategory(EventCategory.TOPIK_EXAM)).thenReturn(java.util.List.of(exam));
+
+        triggerService.processUser(user);
+
+        verify(notificationService, never()).create(any(), any(), any(), any(), any(), any(), any(), any(), eq(NotificationTriggerType.TOPIK_EXAM), any());
     }
 }

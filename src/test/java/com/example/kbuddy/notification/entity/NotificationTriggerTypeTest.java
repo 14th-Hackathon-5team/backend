@@ -7,12 +7,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 class NotificationTriggerTypeTest {
 
     @Test
-    void NotificationTriggerType은_정의된_2개_상수를_가진다() {
+    void NotificationTriggerType은_정의된_4개_상수를_가진다() {
         assertThat(NotificationTriggerType.values())
                 .extracting(Enum::name)
                 .containsExactly(
                         "VISA_EXPIRATION",
-                        "ALIEN_REGISTRATION"
+                        "ALIEN_REGISTRATION",
+                        "TOPIK_APPLICATION",
+                        "TOPIK_EXAM"
                 );
     }
 }

@@ -29,7 +29,14 @@ import java.util.Optional;
 public class CalendarEventService {
 
     private static final long VISA_EXPIRATION_REMINDER_DAYS_BEFORE = 30;
-    private static final Long VISA_EXPIRATION_REMINDER_EVENT_ID = -1L;
+
+    /**
+     * 체류만료 알림은 실제 CalendarEvent row 없이 User.stayExpirationDate로부터 매번 계산되는
+     * 합성(synthetic) 일정이라, 완료 체크/숨김 상태를 저장할 실제 event_id가 없다. 이 상수를
+     * CalendarEventStatus.eventId로 재사용해 완료 체크 대상을 식별한다. TriggerService(알림 도메인)가
+     * D-1 재알림에서 완료 여부를 물어볼 때도 이 상수를 그대로 참조하므로 public으로 노출한다.
+     */
+    public static final Long VISA_EXPIRATION_REMINDER_EVENT_ID = -1L;
     private static final String VISA_EXPIRATION_REMINDER_TITLE = "체류기간 만료 30일 전 안내";
     private static final String VISA_EXPIRATION_REMINDER_DESCRIPTION =
             "체류기간이 30일 후 만료됩니다. 체류기간 연장 등 필요한 절차를 미리 준비하세요.";
@@ -97,6 +104,18 @@ public class CalendarEventService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.CALENDAR_EVENT_NOT_FOUND));
 
         status.restore();
+    }
+
+    /**
+     * User가 특정 eventId(실제 CalendarEvent.id 또는 {@link #VISA_EXPIRATION_REMINDER_EVENT_ID})를
+     * 완료 체크했는지 조회한다. Notification/Trigger 도메인이 D-1 재알림에서 "이미 체크했으면 건너뛴다"
+     * 정책을 판단할 때 사용한다. 상태 row가 없으면(한 번도 체크/숨김 조작을 안 한 경우) 미완료로 간주한다.
+     */
+    @Transactional(readOnly = true)
+    public boolean isCompletedByUser(Long userId, Long eventId) {
+        return calendarEventStatusRepository.findByUserIdAndEventId(userId, eventId)
+                .map(CalendarEventStatus::getCompleted)
+                .orElse(false);
     }
 
     @Transactional(readOnly = true)
