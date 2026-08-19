@@ -8,9 +8,11 @@ import com.example.kbuddy.ai.dto.AiRecommendationResponse;
 import com.example.kbuddy.ai.dto.AiTrigger;
 import com.example.kbuddy.ai.dto.AiUser;
 import com.example.kbuddy.ai.service.AiService;
+import com.example.kbuddy.notification.entity.Notification;
 import com.example.kbuddy.notification.entity.NotificationCategory;
 import com.example.kbuddy.notification.entity.NotificationTriggerType;
 import com.example.kbuddy.notification.repository.NotificationRepository;
+import com.example.kbuddy.notification.service.EmailNotificationService;
 import com.example.kbuddy.notification.service.NotificationService;
 import com.example.kbuddy.user.entity.AlarmSetting;
 import com.example.kbuddy.user.entity.PartTimeStatus;
@@ -54,6 +56,7 @@ public class TriggerService {
 
     private final NotificationRepository notificationRepository;
     private final NotificationService notificationService;
+    private final EmailNotificationService emailNotificationService;
     private final AiService aiService;
     private final Clock clock;
 
@@ -99,7 +102,7 @@ public class TriggerService {
             return;
         }
 
-        notificationService.create(
+        Notification created = notificationService.create(
                 user,
                 extractCategory(selected),
                 selected.title(),
@@ -111,6 +114,8 @@ public class TriggerService {
                 triggerType,
                 triggerDate
         );
+
+        emailNotificationService.send(user, created);
     }
 
     /**

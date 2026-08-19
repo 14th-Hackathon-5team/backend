@@ -13,6 +13,7 @@ import com.example.kbuddy.notification.entity.Notification;
 import com.example.kbuddy.notification.entity.NotificationCategory;
 import com.example.kbuddy.notification.entity.NotificationTriggerType;
 import com.example.kbuddy.notification.repository.NotificationRepository;
+import com.example.kbuddy.notification.service.EmailNotificationService;
 import com.example.kbuddy.notification.service.NotificationService;
 import com.example.kbuddy.user.entity.AlarmSetting;
 import com.example.kbuddy.user.entity.HousingType;
@@ -59,13 +60,17 @@ class TriggerServiceTest {
     private NotificationService notificationService;
 
     @Mock
+    private EmailNotificationService emailNotificationService;
+
+    @Mock
     private AiService aiService;
 
     private TriggerService triggerService;
 
     @BeforeEach
     void setUp() {
-        triggerService = new TriggerService(notificationRepository, notificationService, aiService, FIXED_CLOCK);
+        triggerService = new TriggerService(
+                notificationRepository, notificationService, emailNotificationService, aiService, FIXED_CLOCK);
     }
 
     /**
@@ -232,7 +237,7 @@ class TriggerServiceTest {
 
         triggerService.processUser(user);
 
-        verifyNoInteractions(aiService, notificationService);
+        verifyNoInteractions(aiService, notificationService, emailNotificationService);
     }
 
     @Test
@@ -418,5 +423,33 @@ class TriggerServiceTest {
         assertThatCode(() -> triggerService.processUser(user)).doesNotThrowAnyException();
 
         verify(notificationService, never()).create(any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
+    }
+
+    // ---------- 이메일 발송 ----------
+
+    @Test
+    void Notification이_생성되면_생성된_Notification으로_이메일을_발송한다() {
+        User user = neutralUser(TODAY.minusDays(10), false, TODAY.plusYears(1), VisaType.OTHER, PartTimeStatus.NOT_PLANNED, AlarmSetting.ALL);
+        when(notificationRepository.existsByUserAndTriggerTypeAndTriggerDate(any(), any(), any())).thenReturn(false);
+        when(aiService.recommendations(any())).thenReturn(new AiRecommendationResponse(1L, "요약", java.util.List.of(
+                recommendation(AiRecommendationType.LAW, "외국인등록 안내", AiRecommendationPriority.HIGH, "LEGAL"))));
+        Notification saved = org.mockito.Mockito.mock(Notification.class);
+        when(notificationService.create(any(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
+                .thenReturn(saved);
+
+        triggerService.processUser(user);
+
+        verify(emailNotificationService).send(user, saved);
+    }
+
+    @Test
+    void Notification이_생성되지_않으면_이메일도_발송하지_않는다() {
+        User user = neutralUser(TODAY.minusDays(10), false, TODAY.plusYears(1), VisaType.OTHER, PartTimeStatus.NOT_PLANNED, AlarmSetting.ALL);
+        when(notificationRepository.existsByUserAndTriggerTypeAndTriggerDate(any(), any(), any())).thenReturn(false);
+        when(aiService.recommendations(any())).thenReturn(new AiRecommendationResponse(1L, "요약", java.util.List.of()));
+
+        triggerService.processUser(user);
+
+        verifyNoInteractions(emailNotificationService);
     }
 }
