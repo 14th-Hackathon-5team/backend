@@ -8,9 +8,15 @@ import com.example.kbuddy.ai.dto.AiRecommendationResponse;
 import com.example.kbuddy.ai.dto.AiTrigger;
 import com.example.kbuddy.ai.dto.AiUser;
 import com.example.kbuddy.ai.service.AiService;
+import com.example.kbuddy.calendar.entity.CalendarEvent;
+import com.example.kbuddy.calendar.entity.EventCategory;
+import com.example.kbuddy.calendar.repository.CalendarEventRepository;
+import com.example.kbuddy.calendar.service.CalendarEventService;
+import com.example.kbuddy.notification.entity.Notification;
 import com.example.kbuddy.notification.entity.NotificationCategory;
 import com.example.kbuddy.notification.entity.NotificationTriggerType;
 import com.example.kbuddy.notification.repository.NotificationRepository;
+import com.example.kbuddy.notification.service.EmailNotificationService;
 import com.example.kbuddy.notification.service.NotificationService;
 import com.example.kbuddy.user.entity.AlarmSetting;
 import com.example.kbuddy.user.entity.PartTimeStatus;
@@ -25,14 +31,17 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 
 /**
  * 한 User에 대해 어떤 Trigger가 발생했는지 판단하고, FastAPI Recommendation을 호출해
  * Notification 생성까지 이어주는 orchestration 서비스.
  *
- * 현재 실제로 AI 호출 + Notification 저장까지 연결되는 Trigger는
- * {@link NotificationTriggerType#VISA_EXPIRATION}과 {@link NotificationTriggerType#ALIEN_REGISTRATION}
- * 두 가지뿐이다(STEP A에서 정의된 값만 존재하므로).
+ * 현재 실제로 Notification 저장까지 연결되는 Trigger는 {@link NotificationTriggerType#VISA_EXPIRATION},
+ * {@link NotificationTriggerType#ALIEN_REGISTRATION}(AI 추천 호출), {@link NotificationTriggerType#TOPIK_APPLICATION},
+ * {@link NotificationTriggerType#TOPIK_EXAM}(전체 유저 공통 일정이라 AI 호출 없이 고정 문구) 네 가지다.
  *
  * BEFORE_ENTRY / VISA(D2,D4) / PART_TIME 등 나머지 조건은 아직 NotificationTriggerType이
  * 없어 판단 로직만 준비해두고(추후 확장 대비), 실제 AI 호출/Notification 생성으로는
@@ -52,9 +61,19 @@ public class TriggerService {
      */
     private static final int VISA_EXPIRATION_THRESHOLD_DAYS = 30;
 
+    /**
+     * TOPIK 접수/시험일은 전체 유저 공통 날짜이므로 AI 호출 없이 고정 문구로 바로 알림을 만든다.
+     * "곧 다가옴" 알림(D-7)과, 체크 여부에 따라 건너뛸 수 있는 "하루 전" 알림(D-1) 두 번만 보낸다(MVP 정책).
+     */
+    private static final int TOPIK_FAR_REMINDER_DAYS_BEFORE = 7;
+    private static final int DAY_BEFORE_REMINDER_DAYS = 1;
+
     private final NotificationRepository notificationRepository;
     private final NotificationService notificationService;
+    private final EmailNotificationService emailNotificationService;
     private final AiService aiService;
+    private final CalendarEventRepository calendarEventRepository;
+    private final CalendarEventService calendarEventService;
     private final Clock clock;
 
     @Transactional
@@ -70,8 +89,73 @@ public class TriggerService {
         }
         if (isVisaExpirationCandidate(user, today)) {
             int daysRemaining = (int) ChronoUnit.DAYS.between(today, user.getStayExpirationDate());
-            evaluateTrigger(user, NotificationTriggerType.VISA_EXPIRATION, daysRemaining, today);
+            boolean isDayBeforeAndCompleted = daysRemaining == DAY_BEFORE_REMINDER_DAYS
+                    && calendarEventService.isCompletedByUser(user.getId(), CalendarEventService.VISA_EXPIRATION_REMINDER_EVENT_ID);
+            if (!isDayBeforeAndCompleted) {
+                evaluateTrigger(user, NotificationTriggerType.VISA_EXPIRATION, daysRemaining, today);
+            }
         }
+
+        processTopikTriggers(user, today);
+    }
+
+    /**
+     * 전체 유저 공통으로 시드된 TOPIK 접수/시험일 일정(Calendar 도메인의 global CalendarEvent)을 기준으로
+     * D-7(임박 안내), D-1(하루 전 재알림) 시점에 고정 문구 알림을 만든다. 날짜가 유저마다 다르지 않으므로
+     * AI 추천 호출 없이 바로 생성한다. D-1 알림은 유저가 이미 캘린더에서 완료 체크했으면 건너뛴다.
+     */
+    private void processTopikTriggers(User user, LocalDate today) {
+        List<CalendarEvent> topikEvents = new ArrayList<>();
+        topikEvents.addAll(calendarEventRepository.findByIsGlobalTrueAndCategory(EventCategory.TOPIK_APPLICATION));
+        topikEvents.addAll(calendarEventRepository.findByIsGlobalTrueAndCategory(EventCategory.TOPIK_EXAM));
+
+        for (CalendarEvent event : topikEvents) {
+            evaluateTopikTrigger(user, event, today);
+        }
+    }
+
+    private void evaluateTopikTrigger(User user, CalendarEvent event, LocalDate today) {
+        LocalDate deadline = event.getEndDate() != null ? event.getEndDate() : event.getStartDate();
+        long daysRemaining = ChronoUnit.DAYS.between(today, deadline);
+        boolean isFarReminder = daysRemaining == TOPIK_FAR_REMINDER_DAYS_BEFORE;
+        boolean isDayBeforeReminder = daysRemaining == DAY_BEFORE_REMINDER_DAYS;
+        if (!isFarReminder && !isDayBeforeReminder) {
+            return;
+        }
+        if (isDayBeforeReminder && calendarEventService.isCompletedByUser(user.getId(), event.getId())) {
+            return;
+        }
+
+        NotificationTriggerType triggerType = event.getCategory() == EventCategory.TOPIK_APPLICATION
+                ? NotificationTriggerType.TOPIK_APPLICATION
+                : NotificationTriggerType.TOPIK_EXAM;
+        if (notificationRepository.existsByUserAndTriggerTypeAndTriggerDate(user, triggerType, today)) {
+            return;
+        }
+
+        int priority = isDayBeforeReminder ? 5 : 3;
+        if (!isAllowedByAlarmSetting(user.getAlarmSetting(), priority)) {
+            return;
+        }
+
+        String reason = "%s까지 %d일 남았습니다.".formatted(event.getTitle(), daysRemaining);
+        String summary = event.getDescription() != null ? event.getDescription() : event.getTitle();
+        Map<String, Object> details = Map.of("eventId", event.getId(), "daysRemaining", daysRemaining);
+
+        Notification created = notificationService.create(
+                user,
+                NotificationCategory.TOPIK,
+                event.getTitle(),
+                reason,
+                summary,
+                details,
+                null,
+                priority,
+                triggerType,
+                today
+        );
+
+        emailNotificationService.send(user, created);
     }
 
     private void evaluateTrigger(User user, NotificationTriggerType triggerType, Integer daysRemaining, LocalDate triggerDate) {
@@ -99,7 +183,7 @@ public class TriggerService {
             return;
         }
 
-        notificationService.create(
+        Notification created = notificationService.create(
                 user,
                 extractCategory(selected),
                 selected.title(),
@@ -111,6 +195,8 @@ public class TriggerService {
                 triggerType,
                 triggerDate
         );
+
+        emailNotificationService.send(user, created);
     }
 
     /**
@@ -143,6 +229,18 @@ public class TriggerService {
         return switch (alarmSetting) {
             case ALL -> true;
             case ESSENTIAL_ONLY -> priority == AiRecommendationPriority.HIGH;
+            case NONE -> false;
+        };
+    }
+
+    /**
+     * TOPIK 알림처럼 AI 없이 고정 priority 점수(1~5)로 바로 판단하는 경우를 위한 오버로드.
+     * 점수 매핑은 {@link #toPriorityScore(AiRecommendationPriority)}의 HIGH=5 기준과 맞춘다.
+     */
+    private boolean isAllowedByAlarmSetting(AlarmSetting alarmSetting, int priorityScore) {
+        return switch (alarmSetting) {
+            case ALL -> true;
+            case ESSENTIAL_ONLY -> priorityScore >= 5;
             case NONE -> false;
         };
     }

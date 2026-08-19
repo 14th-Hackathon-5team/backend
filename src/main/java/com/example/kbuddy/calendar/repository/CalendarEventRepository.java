@@ -1,6 +1,7 @@
 package com.example.kbuddy.calendar.repository;
 
 import com.example.kbuddy.calendar.entity.CalendarEvent;
+import com.example.kbuddy.calendar.entity.EventCategory;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -36,6 +37,8 @@ public interface CalendarEventRepository extends JpaRepository<CalendarEvent, Lo
             @Param("userId") Long userId,
             @Param("eventId") Long eventId
     );
+
+    List<CalendarEvent> findByIsGlobalTrueAndCategory(EventCategory category);
 
     @Modifying
     @Query("""
