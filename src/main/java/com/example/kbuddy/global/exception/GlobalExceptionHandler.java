@@ -2,6 +2,7 @@ package com.example.kbuddy.global.exception;
 
 import com.example.kbuddy.ai.client.AiClientException;
 import com.example.kbuddy.global.response.ApiResponse;
+import com.example.kbuddy.job.client.SeoulJobClientException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -24,6 +25,13 @@ public class GlobalExceptionHandler {
         return ResponseEntity
                 .status(HttpStatus.SERVICE_UNAVAILABLE)
                 .body(ApiResponse.fail("AI_SERVICE_UNAVAILABLE", "AI 서비스에 일시적으로 연결할 수 없습니다. 잠시 후 다시 시도해주세요."));
+    }
+
+    @ExceptionHandler(SeoulJobClientException.class)
+    public ResponseEntity<ApiResponse<Void>> handleSeoulJobClientException(SeoulJobClientException e) {
+        return ResponseEntity
+                .status(HttpStatus.SERVICE_UNAVAILABLE)
+                .body(ApiResponse.fail("SEOUL_JOB_SERVICE_UNAVAILABLE", "채용공고 서비스에 일시적으로 연결할 수 없습니다. 잠시 후 다시 시도해주세요."));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
