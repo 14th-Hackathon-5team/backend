@@ -31,10 +31,20 @@ public class NewsClient {
         this.aiProperties = aiProperties;
     }
 
-    public NewsResponse getNews() {
+    /**
+     * language는 AI 서버와 합의된 "ko"/"en" 코드({@link com.example.kbuddy.ai.dto.AiUser#languageCode}
+     * 로 변환된 값)여야 한다. null이면 쿼리 파라미터 없이 호출해 AI 서버의 기본 언어 처리에 맡긴다.
+     */
+    public NewsResponse getNews(String language) {
         try {
             return restClient.get()
-                    .uri(NEWS_PATH)
+                    .uri(uriBuilder -> {
+                        uriBuilder.path(NEWS_PATH);
+                        if (language != null) {
+                            uriBuilder.queryParam("language", language);
+                        }
+                        return uriBuilder.build();
+                    })
                     .header(API_KEY_HEADER, aiProperties.internalApiKey())
                     .retrieve()
                     .body(NewsResponse.class);

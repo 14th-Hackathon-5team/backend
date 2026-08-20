@@ -59,7 +59,7 @@ class AiUserMapperTest {
         assertThat(aiUser.hasPartTimePermit()).isNull();
         assertThat(aiUser.currentTopikLevel()).isEqualTo(TopikLevel.LEVEL_3);
         assertThat(aiUser.targetTopikLevel()).isEqualTo(TopikLevel.LEVEL_5);
-        assertThat(aiUser.language()).isEqualTo(Language.KOREAN);
+        assertThat(aiUser.language()).isEqualTo("ko");
     }
 
     @Test
@@ -71,5 +71,16 @@ class AiUserMapperTest {
         );
 
         assertThat(mapper.toAiUser(user).nationality()).isEqualTo("JP");
+    }
+
+    @Test
+    void ENGLISH_사용자는_AiUser_language가_en으로_변환된다() {
+        UserResponse user = new UserResponse(
+                3L, "b@b.com", "이름", "US", 1998, UserStatus.GRADUATE, null,
+                LocalDate.of(2020, 1, 1), VisaType.OTHER, false, null, null, null,
+                PartTimeStatus.NOT_PLANNED, TopikLevel.NONE, TopikLevel.NONE, Language.ENGLISH
+        );
+
+        assertThat(mapper.toAiUser(user).language()).isEqualTo("en");
     }
 }

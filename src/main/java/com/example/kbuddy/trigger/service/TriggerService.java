@@ -322,7 +322,7 @@ public class TriggerService {
                 null, // hasPartTimePermit: User Entity에 아직 없는 필드라 매핑할 데이터가 없음
                 user.getCurrentTopikLevel(),
                 user.getTargetTopikLevel(),
-                user.getLanguage()
+                AiUser.languageCode(user.getLanguage())
         );
     }
 }

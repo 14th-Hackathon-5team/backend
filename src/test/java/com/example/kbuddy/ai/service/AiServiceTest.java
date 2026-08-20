@@ -9,7 +9,6 @@ import com.example.kbuddy.ai.dto.AiTrigger;
 import com.example.kbuddy.ai.dto.AiUser;
 import com.example.kbuddy.notification.entity.NotificationCategory;
 import com.example.kbuddy.user.entity.HousingType;
-import com.example.kbuddy.user.entity.Language;
 import com.example.kbuddy.user.entity.PartTimeStatus;
 import com.example.kbuddy.user.entity.TopikLevel;
 import com.example.kbuddy.user.entity.UserStatus;
@@ -58,7 +57,7 @@ class AiServiceTest {
                 false,
                 TopikLevel.LEVEL_3,
                 TopikLevel.LEVEL_5,
-                Language.KOREAN
+                "ko"
         );
     }
 

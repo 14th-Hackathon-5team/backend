@@ -1,15 +1,20 @@
 package com.example.kbuddy.news.controller;
 
+import com.example.kbuddy.ai.dto.AiUser;
 import com.example.kbuddy.global.response.ApiResponse;
 import com.example.kbuddy.news.client.NewsClient;
 import com.example.kbuddy.news.dto.NewsItem;
 import com.example.kbuddy.news.dto.NewsResponse;
+import com.example.kbuddy.user.dto.UserResponse;
+import com.example.kbuddy.user.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -21,6 +26,7 @@ import java.util.List;
 public class NewsController {
 
     private final NewsClient newsClient;
+    private final UserService userService;
 
     @Operation(
             summary = "맞춤 뉴스 조회",
@@ -43,8 +49,11 @@ public class NewsController {
     })
     @SecurityRequirement(name = "bearerAuth")
     @GetMapping("/api/news")
-    public ResponseEntity<ApiResponse<List<NewsItem>>> getNews() {
-        NewsResponse response = newsClient.getNews();
+    public ResponseEntity<ApiResponse<List<NewsItem>>> getNews(@AuthenticationPrincipal Jwt jwt) {
+        Long userId = Long.valueOf(jwt.getSubject());
+        UserResponse currentUser = userService.getMyInfo(userId);
+
+        NewsResponse response = newsClient.getNews(AiUser.languageCode(currentUser.language()));
         List<NewsItem> news = response != null && response.news() != null ? response.news() : List.of();
         return ResponseEntity.ok(
                 ApiResponse.success("NEWS_FETCHED", "뉴스 목록을 조회했습니다.", news)

@@ -250,6 +250,8 @@ class TriggerServiceTest {
         // User Entity에 아직 없는 필드라 매핑 데이터가 없으므로 항상 null이어야 한다.
         assertThat(aiUser.partTimeStartDate()).isNull();
         assertThat(aiUser.hasPartTimePermit()).isNull();
+        // Language.KOREAN은 AI 서버와 합의된 언어 코드 "ko"로 변환되어야 한다.
+        assertThat(aiUser.language()).isEqualTo("ko");
     }
 
     // ---------- 15, 16: AlarmSetting NONE/ALL ----------

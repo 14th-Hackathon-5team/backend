@@ -26,6 +26,21 @@ public record AiUser(
         Boolean hasPartTimePermit,
         TopikLevel currentTopikLevel,
         TopikLevel targetTopikLevel,
-        Language language
+        String language
 ) {
+
+    /**
+     * 내부 {@link Language} enum을 AI 서버와 합의된 언어 코드로 변환한다.
+     * AI 서버는 값이 없거나 알 수 없으면 자체적으로 한국어로 기본 처리하므로,
+     * null이 들어오면 그대로 null을 반환해 AI 서버의 기본 처리에 맡긴다.
+     */
+    public static String languageCode(Language language) {
+        if (language == null) {
+            return null;
+        }
+        return switch (language) {
+            case KOREAN -> "ko";
+            case ENGLISH -> "en";
+        };
+    }
 }

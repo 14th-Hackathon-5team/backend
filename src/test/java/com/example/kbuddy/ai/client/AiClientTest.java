@@ -11,7 +11,6 @@ import com.example.kbuddy.ai.dto.AiTrigger;
 import com.example.kbuddy.ai.dto.AiUser;
 import com.example.kbuddy.notification.entity.NotificationCategory;
 import com.example.kbuddy.user.entity.HousingType;
-import com.example.kbuddy.user.entity.Language;
 import com.example.kbuddy.user.entity.PartTimeStatus;
 import com.example.kbuddy.user.entity.TopikLevel;
 import com.example.kbuddy.user.entity.UserStatus;
@@ -90,7 +89,7 @@ class AiClientTest {
                 false,
                 TopikLevel.LEVEL_3,
                 TopikLevel.LEVEL_5,
-                Language.KOREAN
+                "ko"
         );
     }
 
@@ -131,7 +130,7 @@ class AiClientTest {
                     "hasPartTimePermit": false,
                     "currentTopikLevel": "LEVEL_3",
                     "targetTopikLevel": "LEVEL_5",
-                    "language": "KOREAN"
+                    "language": "ko"
                   },
                   "trigger": {
                     "type": "VISA_EXPIRATION",
@@ -157,14 +156,14 @@ class AiClientTest {
                 1L, "Vietnam", 2003, UserStatus.UNDERGRADUATE, "성공회대학교",
                 LocalDate.of(2026, 6, 1), VisaType.D2, true, LocalDate.of(2026, 12, 1),
                 HousingType.DORMITORY, true, PartTimeStatus.SEARCHING, null, false,
-                TopikLevel.LEVEL_3, TopikLevel.LEVEL_4, Language.KOREAN
+                TopikLevel.LEVEL_3, TopikLevel.LEVEL_4, "ko"
         );
         AiRecommendationRequest request = new AiRecommendationRequest(
                 userSearchingPartTime, new AiTrigger("VISA_EXPIRATION", 30));
 
         mockServer.expect(requestTo(BASE_URL + "/recommend"))
                 .andExpect(content().json("""
-                        {"user": {"partTimeStatus": "SEARCHING", "language": "KOREAN"}}
+                        {"user": {"partTimeStatus": "SEARCHING", "language": "ko"}}
                         """, JsonCompareMode.LENIENT))
                 .andRespond(withSuccess(minimalRecommendationResponseJson(), MediaType.APPLICATION_JSON));
 
@@ -336,7 +335,7 @@ class AiClientTest {
                     "hasPartTimePermit": false,
                     "currentTopikLevel": "LEVEL_3",
                     "targetTopikLevel": "LEVEL_5",
-                    "language": "KOREAN"
+                    "language": "ko"
                   },
                   "message": "D-2 비자인데 아르바이트를 시작하려면 어떻게 해야 해?"
                 }
