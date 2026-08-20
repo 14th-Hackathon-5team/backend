@@ -9,6 +9,7 @@ import com.example.kbuddy.calendar.repository.CalendarEventRepository;
 import com.example.kbuddy.calendar.repository.CalendarEventStatusRepository;
 import com.example.kbuddy.global.exception.BusinessException;
 import com.example.kbuddy.global.exception.ErrorCode;
+import com.example.kbuddy.user.entity.Language;
 import com.example.kbuddy.user.entity.User;
 import com.example.kbuddy.user.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -49,7 +50,7 @@ class CalendarEventServiceTest {
     @BeforeEach
     void setUp() {
         calendarEventService = new CalendarEventService(
-                calendarEventRepository, calendarEventStatusRepository, userRepository);
+                calendarEventRepository, calendarEventStatusRepository, userRepository, new CalendarEventTextResolver());
     }
 
     @Test
@@ -133,7 +134,8 @@ class CalendarEventServiceTest {
         );
         when(event.getDescription()).thenReturn("체류 기간 만료 전에 연장 신청이 필요합니다.");
         when(event.getRelatedLink()).thenReturn("https://www.hikorea.go.kr");
-        when(userRepository.existsById(1L)).thenReturn(true);
+        User user = user(1L, null);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(calendarEventRepository.findVisibleEventById(1L, 10L)).thenReturn(Optional.of(event));
 
         CalendarEventDetailResponse response = calendarEventService.getEventDetail(1L, 10L);
@@ -146,7 +148,8 @@ class CalendarEventServiceTest {
 
     @Test
     void 조회할_수_없는_일정이면_CALENDAR_EVENT_NOT_FOUND_예외가_발생한다() {
-        when(userRepository.existsById(1L)).thenReturn(true);
+        User user = user(1L, null);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(calendarEventRepository.findVisibleEventById(1L, 999L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> calendarEventService.getEventDetail(1L, 999L))
@@ -393,6 +396,111 @@ class CalendarEventServiceTest {
         assertThat(responses.get(0).eventId()).isEqualTo(10L);
     }
 
+    // ---------- language별 표시 텍스트 ----------
+
+    @Test
+    void ENGLISH_사용자는_체류만료_D_30_안내_title이_영어로_반환된다() {
+        User user = user(1L, LocalDate.of(2026, 10, 1), Language.ENGLISH);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+
+        CalendarEventDetailResponse response = calendarEventService.getEventDetail(1L, -1L);
+
+        assertThat(response.title()).isEqualTo("Stay Expiration Notice (30 Days Left)");
+        assertThat(response.description())
+                .isEqualTo("Your stay period will expire in 30 days. Please prepare necessary procedures such as a stay extension in advance.");
+    }
+
+    @Test
+    void ENGLISH_사용자는_체류만료_당일_title이_영어로_반환된다() {
+        User user = user(1L, LocalDate.of(2026, 10, 1), Language.ENGLISH);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+
+        CalendarEventDetailResponse response = calendarEventService.getEventDetail(1L, -2L);
+
+        assertThat(response.title()).isEqualTo("Stay Expiration Today");
+        assertThat(response.description())
+                .isEqualTo("Your stay period expires today. If you haven't completed necessary procedures such as a stay extension yet, please check immediately.");
+    }
+
+    @Test
+    void KOREAN_사용자는_체류만료_title이_기존_한국어_그대로_반환된다() {
+        User user = user(1L, LocalDate.of(2026, 10, 1), Language.KOREAN);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+
+        CalendarEventDetailResponse response = calendarEventService.getEventDetail(1L, -1L);
+
+        assertThat(response.title()).isEqualTo("체류기간 만료 30일 전 안내");
+        assertThat(response.description())
+                .isEqualTo("체류기간이 30일 후 만료됩니다. 체류기간 연장 등 필요한 절차를 미리 준비하세요.");
+    }
+
+    @Test
+    void ENGLISH_사용자는_TOPIK_일정의_title과_description이_영어로_변환된다() {
+        CalendarEvent event = event(
+                3L,
+                "TOPIK 제109회 PBT 접수기간",
+                EventCategory.TOPIK_APPLICATION,
+                LocalDate.of(2026, 9, 1),
+                LocalDate.of(2026, 9, 7),
+                true
+        );
+        when(event.getDescription()).thenReturn("제109회 TOPIK PBT 접수기간입니다.");
+        when(event.getRelatedLink()).thenReturn("https://www.topik.go.kr");
+        User user = user(1L, null, Language.ENGLISH);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(calendarEventRepository.findVisibleEventById(1L, 3L)).thenReturn(Optional.of(event));
+
+        CalendarEventDetailResponse response = calendarEventService.getEventDetail(1L, 3L);
+
+        assertThat(response.title()).isEqualTo("TOPIK Round 109 (PBT) Application Period");
+        assertThat(response.description()).isEqualTo("This is the application period for TOPIK Round 109 (PBT).");
+    }
+
+    @Test
+    void ENGLISH_사용자는_TOPIK_시험일_description에_성적_발표일이_영어로_포함된다() {
+        CalendarEvent event = event(
+                4L,
+                "TOPIK 제109회 PBT 시험일",
+                EventCategory.TOPIK_EXAM,
+                LocalDate.of(2026, 11, 15),
+                null,
+                true
+        );
+        when(event.getDescription()).thenReturn("제109회 TOPIK PBT 시험일입니다. 성적 발표는 12월 22일 예정입니다.");
+        when(event.getRelatedLink()).thenReturn("https://www.topik.go.kr");
+        User user = user(1L, null, Language.ENGLISH);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(calendarEventRepository.findVisibleEventById(1L, 4L)).thenReturn(Optional.of(event));
+
+        CalendarEventDetailResponse response = calendarEventService.getEventDetail(1L, 4L);
+
+        assertThat(response.title()).isEqualTo("TOPIK Round 109 (PBT) Exam Date");
+        assertThat(response.description())
+                .isEqualTo("This is the exam date for TOPIK Round 109 (PBT). Results are expected to be announced on December 22.");
+    }
+
+    @Test
+    void KOREAN_사용자는_TOPIK_일정_title이_기존_한국어_그대로_반환된다() {
+        CalendarEvent event = event(
+                3L,
+                "TOPIK 제109회 PBT 접수기간",
+                EventCategory.TOPIK_APPLICATION,
+                LocalDate.of(2026, 9, 1),
+                LocalDate.of(2026, 9, 7),
+                true
+        );
+        when(event.getDescription()).thenReturn("제109회 TOPIK PBT 접수기간입니다.");
+        when(event.getRelatedLink()).thenReturn("https://www.topik.go.kr");
+        User user = user(1L, null, Language.KOREAN);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(calendarEventRepository.findVisibleEventById(1L, 3L)).thenReturn(Optional.of(event));
+
+        CalendarEventDetailResponse response = calendarEventService.getEventDetail(1L, 3L);
+
+        assertThat(response.title()).isEqualTo("TOPIK 제109회 PBT 접수기간");
+        assertThat(response.description()).isEqualTo("제109회 TOPIK PBT 접수기간입니다.");
+    }
+
     private CalendarEvent event(
             Long id,
             String title,
@@ -413,8 +521,14 @@ class CalendarEventServiceTest {
 
     private User user(Long id, LocalDate stayExpirationDate) {
         User user = mock(User.class);
-        when(user.getId()).thenReturn(id);
+        lenient().when(user.getId()).thenReturn(id);
         lenient().when(user.getStayExpirationDate()).thenReturn(stayExpirationDate);
+        return user;
+    }
+
+    private User user(Long id, LocalDate stayExpirationDate, Language language) {
+        User user = user(id, stayExpirationDate);
+        lenient().when(user.getLanguage()).thenReturn(language);
         return user;
     }
 }

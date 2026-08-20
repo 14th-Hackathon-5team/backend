@@ -13,6 +13,7 @@ import com.example.kbuddy.calendar.entity.CalendarEvent;
 import com.example.kbuddy.calendar.entity.EventCategory;
 import com.example.kbuddy.calendar.repository.CalendarEventRepository;
 import com.example.kbuddy.calendar.service.CalendarEventService;
+import com.example.kbuddy.calendar.service.CalendarEventTextResolver;
 import com.example.kbuddy.notification.entity.Notification;
 import com.example.kbuddy.notification.entity.NotificationCategory;
 import com.example.kbuddy.notification.entity.NotificationTriggerType;
@@ -81,7 +82,7 @@ class TriggerServiceTest {
     void setUp() {
         triggerService = new TriggerService(
                 notificationRepository, notificationService, emailNotificationService, aiService,
-                calendarEventRepository, calendarEventService, FIXED_CLOCK);
+                calendarEventRepository, calendarEventService, new CalendarEventTextResolver(), FIXED_CLOCK);
     }
 
     /**
@@ -95,6 +96,18 @@ class TriggerServiceTest {
             VisaType visaType,
             PartTimeStatus partTimeStatus,
             AlarmSetting alarmSetting
+    ) {
+        return neutralUser(entryDate, hasAlienRegistration, stayExpirationDate, visaType, partTimeStatus, alarmSetting, Language.KOREAN);
+    }
+
+    private User neutralUser(
+            LocalDate entryDate,
+            Boolean hasAlienRegistration,
+            LocalDate stayExpirationDate,
+            VisaType visaType,
+            PartTimeStatus partTimeStatus,
+            AlarmSetting alarmSetting,
+            Language language
     ) {
         User user = new User(
                 AuthProvider.GOOGLE,
@@ -114,7 +127,7 @@ class TriggerServiceTest {
                 partTimeStatus,
                 TopikLevel.LEVEL_3,
                 TopikLevel.LEVEL_5,
-                Language.KOREAN
+                language
         );
         user.updateAlarmSetting(alarmSetting);
         setUserId(user, 1L);
@@ -132,7 +145,13 @@ class TriggerServiceTest {
     }
 
     private CalendarEvent topikEvent(Long id, EventCategory category, LocalDate startDate, LocalDate endDate) {
-        CalendarEvent event = new CalendarEvent(null, "TOPIK 일정", category, startDate, endDate, true, "설명", "https://www.topik.go.kr");
+        return topikEvent(id, category, startDate, endDate, "TOPIK 일정", "설명");
+    }
+
+    private CalendarEvent topikEvent(
+            Long id, EventCategory category, LocalDate startDate, LocalDate endDate, String title, String description
+    ) {
+        CalendarEvent event = new CalendarEvent(null, title, category, startDate, endDate, true, description, "https://www.topik.go.kr");
         try {
             var field = CalendarEvent.class.getDeclaredField("id");
             field.setAccessible(true);
@@ -559,6 +578,46 @@ class TriggerServiceTest {
         triggerService.processUser(user);
 
         verify(notificationService, never()).create(any(), any(), any(), any(), any(), any(), any(), any(), eq(NotificationTriggerType.TOPIK_EXAM), any());
+    }
+
+    @Test
+    void ENGLISH_사용자는_TOPIK_알림의_title_reason_summary가_영어로_생성된다() {
+        User user = neutralUser(TODAY.minusYears(1), true, TODAY.plusYears(1), VisaType.OTHER,
+                PartTimeStatus.NOT_PLANNED, AlarmSetting.ALL, Language.ENGLISH);
+        CalendarEvent exam = topikEvent(100L, EventCategory.TOPIK_EXAM, TODAY.plusDays(7), null,
+                "TOPIK 제109회 PBT 시험일", "제109회 TOPIK PBT 시험일입니다. 성적 발표는 12월 22일 예정입니다.");
+        when(calendarEventRepository.findByIsGlobalTrueAndCategory(EventCategory.TOPIK_APPLICATION)).thenReturn(java.util.List.of());
+        when(calendarEventRepository.findByIsGlobalTrueAndCategory(EventCategory.TOPIK_EXAM)).thenReturn(java.util.List.of(exam));
+        when(notificationRepository.existsByUserAndTriggerTypeAndTriggerDate(user, NotificationTriggerType.TOPIK_EXAM, TODAY)).thenReturn(false);
+
+        triggerService.processUser(user);
+
+        verify(notificationService).create(
+                eq(user), eq(NotificationCategory.TOPIK),
+                eq("TOPIK Round 109 (PBT) Exam Date"),
+                eq("7 day(s) left until TOPIK Round 109 (PBT) Exam Date."),
+                eq("This is the exam date for TOPIK Round 109 (PBT). Results are expected to be announced on December 22."),
+                any(), any(), eq(3), eq(NotificationTriggerType.TOPIK_EXAM), eq(TODAY));
+    }
+
+    @Test
+    void KOREAN_사용자는_TOPIK_알림의_title_reason_summary가_기존_한국어_그대로_생성된다() {
+        User user = neutralUser(TODAY.minusYears(1), true, TODAY.plusYears(1), VisaType.OTHER,
+                PartTimeStatus.NOT_PLANNED, AlarmSetting.ALL, Language.KOREAN);
+        CalendarEvent exam = topikEvent(100L, EventCategory.TOPIK_EXAM, TODAY.plusDays(7), null,
+                "TOPIK 제109회 PBT 시험일", "제109회 TOPIK PBT 시험일입니다. 성적 발표는 12월 22일 예정입니다.");
+        when(calendarEventRepository.findByIsGlobalTrueAndCategory(EventCategory.TOPIK_APPLICATION)).thenReturn(java.util.List.of());
+        when(calendarEventRepository.findByIsGlobalTrueAndCategory(EventCategory.TOPIK_EXAM)).thenReturn(java.util.List.of(exam));
+        when(notificationRepository.existsByUserAndTriggerTypeAndTriggerDate(user, NotificationTriggerType.TOPIK_EXAM, TODAY)).thenReturn(false);
+
+        triggerService.processUser(user);
+
+        verify(notificationService).create(
+                eq(user), eq(NotificationCategory.TOPIK),
+                eq("TOPIK 제109회 PBT 시험일"),
+                eq("TOPIK 제109회 PBT 시험일까지 7일 남았습니다."),
+                eq("제109회 TOPIK PBT 시험일입니다. 성적 발표는 12월 22일 예정입니다."),
+                any(), any(), eq(3), eq(NotificationTriggerType.TOPIK_EXAM), eq(TODAY));
     }
 
     @Test

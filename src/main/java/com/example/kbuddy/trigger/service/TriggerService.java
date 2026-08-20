@@ -12,6 +12,7 @@ import com.example.kbuddy.calendar.entity.CalendarEvent;
 import com.example.kbuddy.calendar.entity.EventCategory;
 import com.example.kbuddy.calendar.repository.CalendarEventRepository;
 import com.example.kbuddy.calendar.service.CalendarEventService;
+import com.example.kbuddy.calendar.service.CalendarEventTextResolver;
 import com.example.kbuddy.notification.entity.Notification;
 import com.example.kbuddy.notification.entity.NotificationCategory;
 import com.example.kbuddy.notification.entity.NotificationTriggerType;
@@ -19,6 +20,7 @@ import com.example.kbuddy.notification.repository.NotificationRepository;
 import com.example.kbuddy.notification.service.EmailNotificationService;
 import com.example.kbuddy.notification.service.NotificationService;
 import com.example.kbuddy.user.entity.AlarmSetting;
+import com.example.kbuddy.user.entity.Language;
 import com.example.kbuddy.user.entity.PartTimeStatus;
 import com.example.kbuddy.user.entity.User;
 import com.example.kbuddy.user.entity.VisaType;
@@ -74,6 +76,7 @@ public class TriggerService {
     private final AiService aiService;
     private final CalendarEventRepository calendarEventRepository;
     private final CalendarEventService calendarEventService;
+    private final CalendarEventTextResolver calendarEventTextResolver;
     private final Clock clock;
 
     @Transactional
@@ -138,14 +141,20 @@ public class TriggerService {
             return;
         }
 
-        String reason = "%s까지 %d일 남았습니다.".formatted(event.getTitle(), daysRemaining);
-        String summary = event.getDescription() != null ? event.getDescription() : event.getTitle();
+        Language language = user.getLanguage();
+        String displayTitle = calendarEventTextResolver.resolveTitle(language, event.getCategory(), event.getTitle());
+        String displayDescription = calendarEventTextResolver.resolveDescription(language, event.getCategory(), event.getDescription());
+
+        String reason = language == Language.ENGLISH
+                ? "%d day(s) left until %s.".formatted(daysRemaining, displayTitle)
+                : "%s까지 %d일 남았습니다.".formatted(displayTitle, daysRemaining);
+        String summary = displayDescription != null ? displayDescription : displayTitle;
         Map<String, Object> details = Map.of("eventId", event.getId(), "daysRemaining", daysRemaining);
 
         Notification created = notificationService.create(
                 user,
                 NotificationCategory.TOPIK,
-                event.getTitle(),
+                displayTitle,
                 reason,
                 summary,
                 details,

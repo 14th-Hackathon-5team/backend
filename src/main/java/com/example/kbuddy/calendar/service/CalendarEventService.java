@@ -9,6 +9,7 @@ import com.example.kbuddy.calendar.repository.CalendarEventRepository;
 import com.example.kbuddy.calendar.repository.CalendarEventStatusRepository;
 import com.example.kbuddy.global.exception.BusinessException;
 import com.example.kbuddy.global.exception.ErrorCode;
+import com.example.kbuddy.user.entity.Language;
 import com.example.kbuddy.user.entity.User;
 import com.example.kbuddy.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -38,8 +39,11 @@ public class CalendarEventService {
      */
     public static final Long VISA_EXPIRATION_REMINDER_EVENT_ID = -1L;
     private static final String VISA_EXPIRATION_REMINDER_TITLE = "체류기간 만료 30일 전 안내";
+    private static final String VISA_EXPIRATION_REMINDER_TITLE_EN = "Stay Expiration Notice (30 Days Left)";
     private static final String VISA_EXPIRATION_REMINDER_DESCRIPTION =
             "체류기간이 30일 후 만료됩니다. 체류기간 연장 등 필요한 절차를 미리 준비하세요.";
+    private static final String VISA_EXPIRATION_REMINDER_DESCRIPTION_EN =
+            "Your stay period will expire in 30 days. Please prepare necessary procedures such as a stay extension in advance.";
     private static final String VISA_EXPIRATION_REMINDER_RELATED_LINK = "https://www.hikorea.go.kr";
 
     /**
@@ -52,12 +56,35 @@ public class CalendarEventService {
      */
     private static final Long VISA_EXPIRATION_DAY_EVENT_ID = -2L;
     private static final String VISA_EXPIRATION_DAY_TITLE = "체류기간 만료";
+    private static final String VISA_EXPIRATION_DAY_TITLE_EN = "Stay Expiration Today";
     private static final String VISA_EXPIRATION_DAY_DESCRIPTION =
             "오늘 체류기간이 만료됩니다. 체류기간 연장 등 필요한 절차를 아직 안 하셨다면 서둘러 확인하세요.";
+    private static final String VISA_EXPIRATION_DAY_DESCRIPTION_EN =
+            "Your stay period expires today. If you haven't completed necessary procedures such as a stay extension yet, please check immediately.";
 
     private final CalendarEventRepository calendarEventRepository;
     private final CalendarEventStatusRepository calendarEventStatusRepository;
     private final UserRepository userRepository;
+    private final CalendarEventTextResolver textResolver;
+
+    /**
+     * 체류만료 합성 title/description은 실제 CalendarEvent row가 없어 {@link CalendarEventTextResolver}가
+     * 다루는 "DB 원본 한국어를 파싱해 영어로 재구성"하는 방식을 적용할 수 없다. 두 언어 버전을 상수로
+     * 미리 준비해두고 language로 고르기만 한다.
+     */
+    private String visaReminderTitle(boolean isDayOf, Language language) {
+        if (language == Language.ENGLISH) {
+            return isDayOf ? VISA_EXPIRATION_DAY_TITLE_EN : VISA_EXPIRATION_REMINDER_TITLE_EN;
+        }
+        return isDayOf ? VISA_EXPIRATION_DAY_TITLE : VISA_EXPIRATION_REMINDER_TITLE;
+    }
+
+    private String visaReminderDescription(boolean isDayOf, Language language) {
+        if (language == Language.ENGLISH) {
+            return isDayOf ? VISA_EXPIRATION_DAY_DESCRIPTION_EN : VISA_EXPIRATION_REMINDER_DESCRIPTION_EN;
+        }
+        return isDayOf ? VISA_EXPIRATION_DAY_DESCRIPTION : VISA_EXPIRATION_REMINDER_DESCRIPTION;
+    }
 
     @Transactional(readOnly = true)
     public List<CalendarEventResponse> getMonthlyEvents(Long userId, int year, int month) {
@@ -84,11 +111,20 @@ public class CalendarEventService {
             return getVisaReminderDetail(userId, eventId);
         }
 
-        validateUserExists(userId);
+        User user = findUserById(userId);
         CalendarEvent event = calendarEventRepository.findVisibleEventById(userId, eventId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.CALENDAR_EVENT_NOT_FOUND));
 
-        return CalendarEventDetailResponse.from(event);
+        return new CalendarEventDetailResponse(
+                event.getId(),
+                textResolver.resolveTitle(user.getLanguage(), event.getCategory(), event.getTitle()),
+                event.getCategory(),
+                event.getStartDate(),
+                event.getEndDate(),
+                event.getIsGlobal(),
+                textResolver.resolveDescription(user.getLanguage(), event.getCategory(), event.getDescription()),
+                event.getRelatedLink()
+        );
     }
 
     @Transactional
@@ -162,7 +198,10 @@ public class CalendarEventService {
             if (status != null && status.isHidden()) {
                 continue;
             }
-            responses.add(CalendarEventResponse.from(event, status != null && status.getCompleted()));
+            String displayTitle = textResolver.resolveTitle(user.getLanguage(), event.getCategory(), event.getTitle());
+            responses.add(new CalendarEventResponse(
+                    event.getId(), displayTitle, event.getCategory(), event.getStartDate(), event.getEndDate(),
+                    event.getIsGlobal(), status != null && status.getCompleted()));
         }
 
         for (VisaReminder reminder : visaReminders) {
@@ -200,15 +239,16 @@ public class CalendarEventService {
             return List.of();
         }
 
+        Language language = user.getLanguage();
         List<VisaReminder> reminders = new ArrayList<>();
         LocalDate thirtyDaysBefore = stayExpirationDate.minusDays(VISA_EXPIRATION_REMINDER_DAYS_BEFORE);
         if (!thirtyDaysBefore.isBefore(startDate) && !thirtyDaysBefore.isAfter(endDate)) {
             reminders.add(new VisaReminder(VISA_EXPIRATION_REMINDER_EVENT_ID,
-                    new EventSnapshot(VISA_EXPIRATION_REMINDER_TITLE, EventCategory.VISA, thirtyDaysBefore, null, false)));
+                    new EventSnapshot(visaReminderTitle(false, language), EventCategory.VISA, thirtyDaysBefore, null, false)));
         }
         if (!stayExpirationDate.isBefore(startDate) && !stayExpirationDate.isAfter(endDate)) {
             reminders.add(new VisaReminder(VISA_EXPIRATION_DAY_EVENT_ID,
-                    new EventSnapshot(VISA_EXPIRATION_DAY_TITLE, EventCategory.VISA, stayExpirationDate, null, false)));
+                    new EventSnapshot(visaReminderTitle(true, language), EventCategory.VISA, stayExpirationDate, null, false)));
         }
         return reminders;
     }
@@ -225,12 +265,12 @@ public class CalendarEventService {
 
         return new CalendarEventDetailResponse(
                 eventId,
-                isDayOf ? VISA_EXPIRATION_DAY_TITLE : VISA_EXPIRATION_REMINDER_TITLE,
+                visaReminderTitle(isDayOf, user.getLanguage()),
                 EventCategory.VISA,
                 date,
                 null,
                 false,
-                isDayOf ? VISA_EXPIRATION_DAY_DESCRIPTION : VISA_EXPIRATION_REMINDER_DESCRIPTION,
+                visaReminderDescription(isDayOf, user.getLanguage()),
                 VISA_EXPIRATION_REMINDER_RELATED_LINK
         );
     }
@@ -252,24 +292,19 @@ public class CalendarEventService {
             }
             boolean isDayOf = VISA_EXPIRATION_DAY_EVENT_ID.equals(eventId);
             LocalDate date = isDayOf ? stayExpirationDate : stayExpirationDate.minusDays(VISA_EXPIRATION_REMINDER_DAYS_BEFORE);
-            String title = isDayOf ? VISA_EXPIRATION_DAY_TITLE : VISA_EXPIRATION_REMINDER_TITLE;
+            String title = visaReminderTitle(isDayOf, user.getLanguage());
             return Optional.of(new EventSnapshot(title, EventCategory.VISA, date, null, false));
         }
 
         return calendarEventRepository.findVisibleEventById(user.getId(), eventId)
                 .map(event -> new EventSnapshot(
-                        event.getTitle(), event.getCategory(), event.getStartDate(), event.getEndDate(), event.getIsGlobal()));
+                        textResolver.resolveTitle(user.getLanguage(), event.getCategory(), event.getTitle()),
+                        event.getCategory(), event.getStartDate(), event.getEndDate(), event.getIsGlobal()));
     }
 
     private CalendarEventStatus findOrCreateStatus(User user, Long eventId) {
         return calendarEventStatusRepository.findByUserIdAndEventId(user.getId(), eventId)
                 .orElseGet(() -> calendarEventStatusRepository.save(new CalendarEventStatus(user, eventId)));
-    }
-
-    private void validateUserExists(Long userId) {
-        if (!userRepository.existsById(userId)) {
-            throw new BusinessException(ErrorCode.USER_NOT_FOUND);
-        }
     }
 
     private User findUserById(Long userId) {
