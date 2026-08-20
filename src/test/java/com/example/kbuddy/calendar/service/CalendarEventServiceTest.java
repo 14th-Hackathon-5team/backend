@@ -26,6 +26,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -185,6 +186,47 @@ class CalendarEventServiceTest {
     }
 
     @Test
+    void 만료_당일_가상_일정_상세를_조회할_수_있다() {
+        User user = mock(User.class);
+        when(user.getStayExpirationDate()).thenReturn(LocalDate.of(2026, 10, 1));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+
+        CalendarEventDetailResponse response = calendarEventService.getEventDetail(1L, -2L);
+
+        assertThat(response.eventId()).isEqualTo(-2L);
+        assertThat(response.title()).isEqualTo("체류기간 만료");
+        assertThat(response.category()).isEqualTo(EventCategory.VISA);
+        assertThat(response.startDate()).isEqualTo(LocalDate.of(2026, 10, 1));
+        assertThat(response.description()).isNotBlank();
+    }
+
+    @Test
+    void 만료_당일_가상_일정을_완료체크하면_이후_월별_조회에서_완료_상태가_반영된다() {
+        LocalDate stayExpirationDate = LocalDate.of(2026, 10, 15);
+        User user = user(1L, stayExpirationDate);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(calendarEventStatusRepository.findByUserIdAndEventId(1L, -2L)).thenReturn(Optional.empty());
+        ArgumentCaptor<CalendarEventStatus> captor = ArgumentCaptor.forClass(CalendarEventStatus.class);
+        when(calendarEventStatusRepository.save(captor.capture())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        CalendarEventResponse toggleResponse = calendarEventService.toggleCompleted(1L, -2L);
+        assertThat(toggleResponse.completed()).isTrue();
+
+        CalendarEventStatus persisted = captor.getValue();
+        when(calendarEventRepository.findVisibleEventsBetween(
+                1L, YearMonth.of(2026, 10).atDay(1), YearMonth.of(2026, 10).atEndOfMonth()))
+                .thenReturn(List.of());
+        when(calendarEventStatusRepository.findByUserIdAndEventIdIn(eq(1L), any()))
+                .thenReturn(List.of(persisted));
+
+        List<CalendarEventResponse> monthly = calendarEventService.getMonthlyEvents(1L, 2026, 10);
+
+        assertThat(monthly).hasSize(1);
+        assertThat(monthly.get(0).eventId()).isEqualTo(-2L);
+        assertThat(monthly.get(0).completed()).isTrue();
+    }
+
+    @Test
     void 임박_일정은_오늘부터_7일_뒤까지_조회한다() {
         User user = user(1L, null);
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
@@ -228,6 +270,35 @@ class CalendarEventServiceTest {
         CalendarEventResponse response = calendarEventService.toggleCompleted(1L, 10L);
 
         assertThat(response.completed()).isFalse();
+    }
+
+    @Test
+    void 체류만료_D_30_알림을_완료체크하면_이후_월별_조회에서_완료_상태가_반영된다() {
+        LocalDate stayExpirationDate = LocalDate.of(2026, 9, 30);
+        User user = user(1L, stayExpirationDate);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(calendarEventStatusRepository.findByUserIdAndEventId(1L, -1L)).thenReturn(Optional.empty());
+        ArgumentCaptor<CalendarEventStatus> captor = ArgumentCaptor.forClass(CalendarEventStatus.class);
+        when(calendarEventStatusRepository.save(captor.capture())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        CalendarEventResponse toggleResponse = calendarEventService.toggleCompleted(1L, -1L);
+        assertThat(toggleResponse.completed()).isTrue();
+
+        // 위에서 저장된(Mockito가 캡처한) 상태 객체를, 실제 재조회 시나리오처럼 그대로 재사용한다.
+        CalendarEventStatus persisted = captor.getValue();
+        YearMonth reminderMonth = YearMonth.from(stayExpirationDate.minusDays(30));
+        when(calendarEventRepository.findVisibleEventsBetween(
+                1L, reminderMonth.atDay(1), reminderMonth.atEndOfMonth()))
+                .thenReturn(List.of());
+        when(calendarEventStatusRepository.findByUserIdAndEventIdIn(eq(1L), any()))
+                .thenReturn(List.of(persisted));
+
+        List<CalendarEventResponse> monthly = calendarEventService.getMonthlyEvents(
+                1L, reminderMonth.getYear(), reminderMonth.getMonthValue());
+
+        assertThat(monthly).hasSize(1);
+        assertThat(monthly.get(0).eventId()).isEqualTo(-1L);
+        assertThat(monthly.get(0).completed()).isTrue();
     }
 
     @Test

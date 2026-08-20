@@ -42,6 +42,19 @@ public class CalendarEventService {
             "체류기간이 30일 후 만료됩니다. 체류기간 연장 등 필요한 절차를 미리 준비하세요.";
     private static final String VISA_EXPIRATION_REMINDER_RELATED_LINK = "https://www.hikorea.go.kr";
 
+    /**
+     * 만료 "당일" 알림도 위와 같은 이유로 실제 CalendarEvent row 없이 합성 일정으로 취급한다.
+     * FE→BE 요청(체류기간 만료 체크리스트 항목을 실제 이벤트로)에서는 실제 DB row 자동 생성이나
+     * 전용 완료 엔드포인트를 대안으로 제시했지만, 완료 체크는 CalendarEventStatus.eventId가
+     * CalendarEvent에 대한 FK가 아니라 임의의 식별자를 그대로 저장/조회하므로 이미 정상 동작한다
+     * (회귀 테스트로 확인). 그래서 회원가입/정보수정 시점 동기화나 새 엔드포인트 없이,
+     * 기존 -1(D-30 안내) 패턴을 그대로 확장하는 것으로 충분하다.
+     */
+    private static final Long VISA_EXPIRATION_DAY_EVENT_ID = -2L;
+    private static final String VISA_EXPIRATION_DAY_TITLE = "체류기간 만료";
+    private static final String VISA_EXPIRATION_DAY_DESCRIPTION =
+            "오늘 체류기간이 만료됩니다. 체류기간 연장 등 필요한 절차를 아직 안 하셨다면 서둘러 확인하세요.";
+
     private final CalendarEventRepository calendarEventRepository;
     private final CalendarEventStatusRepository calendarEventStatusRepository;
     private final UserRepository userRepository;
@@ -67,8 +80,8 @@ public class CalendarEventService {
 
     @Transactional(readOnly = true)
     public CalendarEventDetailResponse getEventDetail(Long userId, Long eventId) {
-        if (VISA_EXPIRATION_REMINDER_EVENT_ID.equals(eventId)) {
-            return getVisaExpirationReminderDetail(userId);
+        if (isVisaReminderId(eventId)) {
+            return getVisaReminderDetail(userId, eventId);
         }
 
         validateUserExists(userId);
@@ -136,10 +149,10 @@ public class CalendarEventService {
 
     private List<CalendarEventResponse> getVisibleEvents(User user, LocalDate startDate, LocalDate endDate) {
         List<CalendarEvent> events = calendarEventRepository.findVisibleEventsBetween(user.getId(), startDate, endDate);
+        List<VisaReminder> visaReminders = buildVisaReminders(user, startDate, endDate);
 
         List<Long> eventIds = new ArrayList<>(events.stream().map(CalendarEvent::getId).toList());
-        buildVisaExpirationReminder(user, startDate, endDate)
-                .ifPresent(reminder -> eventIds.add(VISA_EXPIRATION_REMINDER_EVENT_ID));
+        visaReminders.forEach(reminder -> eventIds.add(reminder.eventId()));
 
         Map<Long, CalendarEventStatus> statusByEventId = loadStatusMap(user.getId(), eventIds);
 
@@ -152,13 +165,13 @@ public class CalendarEventService {
             responses.add(CalendarEventResponse.from(event, status != null && status.getCompleted()));
         }
 
-        buildVisaExpirationReminder(user, startDate, endDate).ifPresent(reminder -> {
-            CalendarEventStatus status = statusByEventId.get(VISA_EXPIRATION_REMINDER_EVENT_ID);
+        for (VisaReminder reminder : visaReminders) {
+            CalendarEventStatus status = statusByEventId.get(reminder.eventId());
             if (status != null && status.isHidden()) {
-                return;
+                continue;
             }
-            responses.add(reminder.toResponse(VISA_EXPIRATION_REMINDER_EVENT_ID, status != null && status.getCompleted()));
-        });
+            responses.add(reminder.snapshot().toResponse(reminder.eventId(), status != null && status.getCompleted()));
+        }
 
         return responses.stream()
                 .sorted(Comparator.comparing(CalendarEventResponse::startDate))
@@ -173,37 +186,51 @@ public class CalendarEventService {
         return statusByEventId;
     }
 
-    private Optional<EventSnapshot> buildVisaExpirationReminder(User user, LocalDate startDate, LocalDate endDate) {
-        LocalDate stayExpirationDate = user.getStayExpirationDate();
-        if (stayExpirationDate == null) {
-            return Optional.empty();
-        }
-
-        LocalDate reminderDate = stayExpirationDate.minusDays(VISA_EXPIRATION_REMINDER_DAYS_BEFORE);
-        if (reminderDate.isBefore(startDate) || reminderDate.isAfter(endDate)) {
-            return Optional.empty();
-        }
-
-        return Optional.of(new EventSnapshot(VISA_EXPIRATION_REMINDER_TITLE, EventCategory.VISA, reminderDate, null, false));
+    private boolean isVisaReminderId(Long eventId) {
+        return VISA_EXPIRATION_REMINDER_EVENT_ID.equals(eventId) || VISA_EXPIRATION_DAY_EVENT_ID.equals(eventId);
     }
 
-    private CalendarEventDetailResponse getVisaExpirationReminderDetail(Long userId) {
+    /**
+     * stayExpirationDate 하나로부터 D-30 안내, 만료 당일 두 합성 일정을 모두 만든다.
+     * startDate/endDate 범위를 벗어나는 것은 결과에서 제외한다(월별/임박 조회 범위 필터링용).
+     */
+    private List<VisaReminder> buildVisaReminders(User user, LocalDate startDate, LocalDate endDate) {
+        LocalDate stayExpirationDate = user.getStayExpirationDate();
+        if (stayExpirationDate == null) {
+            return List.of();
+        }
+
+        List<VisaReminder> reminders = new ArrayList<>();
+        LocalDate thirtyDaysBefore = stayExpirationDate.minusDays(VISA_EXPIRATION_REMINDER_DAYS_BEFORE);
+        if (!thirtyDaysBefore.isBefore(startDate) && !thirtyDaysBefore.isAfter(endDate)) {
+            reminders.add(new VisaReminder(VISA_EXPIRATION_REMINDER_EVENT_ID,
+                    new EventSnapshot(VISA_EXPIRATION_REMINDER_TITLE, EventCategory.VISA, thirtyDaysBefore, null, false)));
+        }
+        if (!stayExpirationDate.isBefore(startDate) && !stayExpirationDate.isAfter(endDate)) {
+            reminders.add(new VisaReminder(VISA_EXPIRATION_DAY_EVENT_ID,
+                    new EventSnapshot(VISA_EXPIRATION_DAY_TITLE, EventCategory.VISA, stayExpirationDate, null, false)));
+        }
+        return reminders;
+    }
+
+    private CalendarEventDetailResponse getVisaReminderDetail(Long userId, Long eventId) {
         User user = findUserById(userId);
         LocalDate stayExpirationDate = user.getStayExpirationDate();
         if (stayExpirationDate == null) {
             throw new BusinessException(ErrorCode.CALENDAR_EVENT_NOT_FOUND);
         }
 
-        LocalDate reminderDate = stayExpirationDate.minusDays(VISA_EXPIRATION_REMINDER_DAYS_BEFORE);
+        boolean isDayOf = VISA_EXPIRATION_DAY_EVENT_ID.equals(eventId);
+        LocalDate date = isDayOf ? stayExpirationDate : stayExpirationDate.minusDays(VISA_EXPIRATION_REMINDER_DAYS_BEFORE);
 
         return new CalendarEventDetailResponse(
-                VISA_EXPIRATION_REMINDER_EVENT_ID,
-                VISA_EXPIRATION_REMINDER_TITLE,
+                eventId,
+                isDayOf ? VISA_EXPIRATION_DAY_TITLE : VISA_EXPIRATION_REMINDER_TITLE,
                 EventCategory.VISA,
-                reminderDate,
+                date,
                 null,
                 false,
-                VISA_EXPIRATION_REMINDER_DESCRIPTION,
+                isDayOf ? VISA_EXPIRATION_DAY_DESCRIPTION : VISA_EXPIRATION_REMINDER_DESCRIPTION,
                 VISA_EXPIRATION_REMINDER_RELATED_LINK
         );
     }
@@ -218,13 +245,15 @@ public class CalendarEventService {
     }
 
     private Optional<EventSnapshot> loadEventSnapshotOrNull(User user, Long eventId) {
-        if (VISA_EXPIRATION_REMINDER_EVENT_ID.equals(eventId)) {
+        if (isVisaReminderId(eventId)) {
             LocalDate stayExpirationDate = user.getStayExpirationDate();
             if (stayExpirationDate == null) {
                 return Optional.empty();
             }
-            LocalDate reminderDate = stayExpirationDate.minusDays(VISA_EXPIRATION_REMINDER_DAYS_BEFORE);
-            return Optional.of(new EventSnapshot(VISA_EXPIRATION_REMINDER_TITLE, EventCategory.VISA, reminderDate, null, false));
+            boolean isDayOf = VISA_EXPIRATION_DAY_EVENT_ID.equals(eventId);
+            LocalDate date = isDayOf ? stayExpirationDate : stayExpirationDate.minusDays(VISA_EXPIRATION_REMINDER_DAYS_BEFORE);
+            String title = isDayOf ? VISA_EXPIRATION_DAY_TITLE : VISA_EXPIRATION_REMINDER_TITLE;
+            return Optional.of(new EventSnapshot(title, EventCategory.VISA, date, null, false));
         }
 
         return calendarEventRepository.findVisibleEventById(user.getId(), eventId)
@@ -258,5 +287,8 @@ public class CalendarEventService {
         CalendarEventResponse toResponse(Long eventId, boolean completed) {
             return new CalendarEventResponse(eventId, title, category, startDate, endDate, isGlobal, completed);
         }
+    }
+
+    private record VisaReminder(Long eventId, EventSnapshot snapshot) {
     }
 }
