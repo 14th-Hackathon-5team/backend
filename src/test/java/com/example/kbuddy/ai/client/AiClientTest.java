@@ -53,7 +53,7 @@ class AiClientTest {
     private static final String BASE_URL = "http://localhost:8000";
     private static final String API_KEY = "test-internal-api-key";
     private static final AiProperties AI_PROPERTIES =
-            new AiProperties(BASE_URL, API_KEY, Duration.ofSeconds(10), Duration.ofSeconds(20));
+            new AiProperties(BASE_URL, API_KEY, Duration.ofSeconds(10), Duration.ofSeconds(20), Duration.ofSeconds(30));
 
     private MockRestServiceServer mockServer;
     private ServerSocket rawServerSocket;

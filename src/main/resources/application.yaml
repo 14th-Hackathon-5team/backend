@@ -71,6 +71,7 @@ ai:
     internal-api-key: ${AI_INTERNAL_API_KEY:}
     recommendation-timeout: 10s
     chat-timeout: 20s
+    news-timeout: 30s
 
 scheduler:
   notification:

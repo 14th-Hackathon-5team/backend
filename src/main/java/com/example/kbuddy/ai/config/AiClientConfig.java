@@ -24,6 +24,11 @@ public class AiClientConfig {
         return buildRestClient(aiProperties, aiProperties.chatTimeout());
     }
 
+    @Bean
+    public RestClient aiNewsRestClient(AiProperties aiProperties) {
+        return buildRestClient(aiProperties, aiProperties.newsTimeout());
+    }
+
     private RestClient buildRestClient(AiProperties aiProperties, Duration readTimeout) {
         SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
         requestFactory.setConnectTimeout(CONNECT_TIMEOUT);

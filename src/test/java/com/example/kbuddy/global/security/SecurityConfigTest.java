@@ -12,6 +12,7 @@ import com.example.kbuddy.guide.service.GuideService;
 import com.example.kbuddy.calendar.service.CalendarEventService;
 import com.example.kbuddy.notification.service.NotificationService;
 import com.example.kbuddy.job.service.SeoulJobService;
+import com.example.kbuddy.news.client.NewsClient;
 import com.example.kbuddy.user.repository.UserRepository;
 import com.example.kbuddy.user.service.UserService;
 import com.nimbusds.jose.jwk.JWKSet;
@@ -332,6 +333,11 @@ class SecurityConfigTest {
         @Bean
         SeoulJobService seoulJobService() {
             return mock(SeoulJobService.class);
+        }
+
+        @Bean
+        NewsClient newsClient() {
+            return mock(NewsClient.class);
         }
 
         @Bean

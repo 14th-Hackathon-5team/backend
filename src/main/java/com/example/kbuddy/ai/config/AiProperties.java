@@ -9,6 +9,7 @@ public record AiProperties(
         String baseUrl,
         String internalApiKey,
         Duration recommendationTimeout,
-        Duration chatTimeout
+        Duration chatTimeout,
+        Duration newsTimeout
 ) {
 }
