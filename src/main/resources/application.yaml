@@ -75,3 +75,9 @@ ai:
 scheduler:
   notification:
     cron: "0 0 9 * * *"
+
+seoul:
+  job:
+    base-url: ${SEOUL_JOB_BASE_URL:http://openapi.seoul.go.kr:8088}
+    api-key: ${SEOUL_JOB_API_KEY:}
+    timeout: 10s

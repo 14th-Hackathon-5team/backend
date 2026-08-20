@@ -11,6 +11,7 @@ import com.example.kbuddy.auth.service.OAuth2UserService;
 import com.example.kbuddy.guide.service.GuideService;
 import com.example.kbuddy.calendar.service.CalendarEventService;
 import com.example.kbuddy.notification.service.NotificationService;
+import com.example.kbuddy.job.service.SeoulJobService;
 import com.example.kbuddy.user.repository.UserRepository;
 import com.example.kbuddy.user.service.UserService;
 import com.nimbusds.jose.jwk.JWKSet;
@@ -212,6 +213,29 @@ class SecurityConfigTest {
                 .andExpect(status().isForbidden());
     }
 
+    @Test
+    void ACCESS_TOKEN으로_GET_api_external_seoul_jobs에_접근하면_403이_아니다() throws Exception {
+        String accessToken = jwtProvider.issueAccessToken(1L);
+
+        mockMvc.perform(get("/api/external/seoul-jobs").header("Authorization", "Bearer " + accessToken))
+                .andExpect(result -> assertThat(result.getResponse().getStatus()).isNotEqualTo(403));
+    }
+
+    @Test
+    void SIGNUP_TOKEN으로_GET_api_external_seoul_jobs에_접근하면_403을_반환한다() throws Exception {
+        String signupToken = jwtProvider.issueSignupToken(
+                AuthProvider.GOOGLE, "109876543210987654321", "test@gmail.com", "홍길동");
+
+        mockMvc.perform(get("/api/external/seoul-jobs").header("Authorization", "Bearer " + signupToken))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void GET_api_external_seoul_jobs에_토큰_없이_요청하면_401을_반환한다() throws Exception {
+        mockMvc.perform(get("/api/external/seoul-jobs"))
+                .andExpect(status().isUnauthorized());
+    }
+
     private static final String ALLOWED_ORIGIN = "https://frontend-chi-pied-78.vercel.app";
 
     @Test
@@ -303,6 +327,11 @@ class SecurityConfigTest {
         @Bean
         AiUserMapper aiUserMapper() {
             return mock(AiUserMapper.class);
+        }
+
+        @Bean
+        SeoulJobService seoulJobService() {
+            return mock(SeoulJobService.class);
         }
 
         @Bean

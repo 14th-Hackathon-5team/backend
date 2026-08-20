@@ -62,6 +62,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/notifications").hasAuthority("TOKEN_ACCESS")
                         .requestMatchers(HttpMethod.PATCH, "/notifications/*/read").hasAuthority("TOKEN_ACCESS")
                         .requestMatchers(HttpMethod.POST, "/ai/chat").hasAuthority("TOKEN_ACCESS")
+                        .requestMatchers(HttpMethod.GET, "/api/external/seoul-jobs").hasAuthority("TOKEN_ACCESS")
                         .anyRequest().authenticated())
                 .oauth2Login(oauth2 -> oauth2
                         .userInfoEndpoint(userInfo ->
